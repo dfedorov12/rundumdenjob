@@ -1,0 +1,71 @@
+# Session-Log · Rund um den Job
+
+## 2026-07-27 (1): Erstaufbau der App
+
+**Denis:** Neue Website `rundumdenjob` unter dfedorov12, angebunden ans SharePoint-Intranet,
+im DIHAG Corporate Design. Zuordnung der Nutzenden automatisch über die E-Mail-Domänenendung,
+konfigurierbar über einen Einstellungsreiter. Alles, was angezeigt wird, soll rechteabhängig
+dynamisch steuerbar sein (Reiter/Icons – Vorschlag erbeten). Anbindung an
+`dfedorov12.github.io/orgchart-/`, automatische Anmeldung.
+
+**Umgesetzter Vorschlag – zweistufiges Sichtbarkeitsmodell:**
+Ebene 1 = **Reiter** (Navigationspunkte), Ebene 2 = **Kacheln** (Inhalte im Reiter).
+Beide Ebenen tragen dieselben Sichtbarkeitsfelder `Domains` (`*` oder Domänenliste),
+`MinRolle` (viewer/editor/admin) und `Aktiv`; Kacheln zusätzlich `GueltigVon`/`GueltigBis`.
+Ein Reiter ohne Treffer verschwindet komplett aus der Navigation. Kacheltypen: `link` und `text`.
+
+**Dateien (neu):**
+- `index.html` – Boot-Screen, Kein-Zugriff-Screen, Kopfbereich mit Gesellschafts-Badge,
+  dynamische Reiterleiste, Fußzeile.
+- `css/styles.css` – CD (Azur #17509E, Navy #1A2644, Anthrazit #424241, Lichtblau #99B7CD,
+  Orange #F08300, Exo); Logo im Header per `filter: brightness(0) invert(1)` weiß auf Navy.
+- `js/config.js` – ClientId (ZAPP-Registrierung, hat bereits Sites.ReadWrite.All), TenantId,
+  `configSite = /sites/IT`, Listen `RUDJ_Gesellschaften|Reiter|Kacheln`,
+  `permSite = /sites/ticket` + `AppPermissions`, `appKey = rundumdenjob`,
+  `defaultRole = viewer`, `bootstrapAdmins = [fedorov@dihag.com]`, Intranet-Root
+  `dihag.sharepoint.com`, Orgchart-URL.
+- `js/auth.js` – PKCE wie im Orgchart, ergänzt um **automatische Anmeldung**: erst
+  `prompt=none`-Redirect, bei `login_required` automatisch `prompt=select_account`,
+  Login-Button nur im Fehlerfall.
+- `js/graph.js` – `call`/`callAll` (nextLink), `siteId`/`listId` (404 → null),
+  Listen-CRUD, `ensureList` mit Spaltendefinitionen.
+- `js/data.js` – Benutzerkontext (Domänen aus mail + UPN), `loadRole` aus AppPermissions
+  (App = `rundumdenjob` oder `*`, sonst defaultRole), `resolveGesellschaft` (Domänentreffer →
+  Standard-Eintrag → null), `isVisible` (Aktiv + Zeitraum + Rolle + Domänen),
+  `discoverDomains` (Domänen aus `/users`, `.onmicrosoft.com` gefiltert), Session-Cache 10 min.
+- `js/seed.js` – Spaltenschema der drei Listen + 8 Reiter / 16 Kacheln Startinhalt
+  (Joblinks + HR Self-Service aus der Intranet-Seite, Onboarding, Lernen, Sicherheit,
+  Benefits, IT-Services, Führungskräfte-Bereich als `MinRolle: editor`-Beispiel). Idempotent.
+- `js/settings.js` – Einstellungen mit 5 Unterreitern: Gesellschaften & Domänen (inkl.
+  „Domänen im Tenant suchen“), Reiter, Kacheln (mit Reiter-Filter), Berechtigungen
+  (AppPermissions lesen/anlegen/entfernen), Einrichtung (Listen anlegen, Domänen übernehmen,
+  Startinhalte) + Erklärtext zur Sichtbarkeitskette.
+- `js/app.js` – Boot, Kopfbereich (Avatar aus Graph-Foto, Gesellschafts-Badge),
+  dynamische Reiter + Deeplink über `location.hash`, Kachel-Rendering,
+  Startseite mit Profil + **Orgchart-Anbindung** (Führungskraft / eigenes Team /
+  Kolleg:innen über `/me/manager` + `directReports`) + **Intranet-News**
+  (`/sites/{root}/pages/microsoft.graph.sitePage`), Freigabe-Anfrage per `/me/sendMail`.
+- `setup-rundumdenjob.ps1` – Redirect-URI ergänzen, Listen + Spalten anlegen,
+  optional `-SeedDomains`.
+- `README.md`, `.gitignore` (schließt `_test.html` aus).
+- `assets/dihag-logo.png` – aus `orgchart/index.html` (Base64) extrahiert, 210 KB.
+
+**Verifikation:** `node --check` für alle 7 JS-Dateien. Browser-Test über `_test.html`
+(Stubs für AUTH/GRAPH, lokaler Server auf Port 8769, Eintrag in `.claude/launch.json`):
+- 13 Sichtbarkeitsprüfungen grün: admin sieht 8 Reiter inkl. Führungskräfte; als `viewer`
+  verschwinden Reiter **und** Kachel; Reiter mit `Domains=gienanth.de` ist für `@dihag.com`
+  weg und für `@gienanth.de` da; abgelaufene / zukünftige / inaktive Kachel unsichtbar;
+  Gesellschaftsauflösung inkl. Standard-Fallback; Domänensuche findet 3 Domänen;
+  `javascript:`-URL wird verworfen.
+- Einrichtung: aus leerem Stand 3 Gesellschaften + 8 Reiter + 16 Kacheln, zweiter Durchlauf
+  ohne Duplikate.
+- CRUD über die Oberfläche: neue Kachel angelegt (URL-Validierung blockt `javascript:`,
+  Modal bleibt offen), danach korrekt nur für `@gienanth.de` sichtbar; Löschen funktioniert.
+- Alle 5 Unterreiter rendern, Konsole fehlerfrei.
+
+**Offen / manuell:**
+1. Redirect-URI `https://dfedorov12.github.io/rundumdenjob/` in der App-Registrierung
+   `c7710322-…` eintragen (oder Skript ausführen) – sonst AADSTS50011 beim ersten Aufruf.
+2. GitHub Pages im neuen Repo aktivieren.
+3. Domänen/Gesellschaften nach dem ersten Login prüfen und benennen (Skript vergibt
+   nur einen aus der Domäne abgeleiteten Namen).
