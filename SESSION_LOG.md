@@ -273,3 +273,32 @@ gegen einen wirklich falschen Namen ab; Kontrollabschnitt auf die drei Meldungsa
 nachgebildet): Fall `Typ2` → Hinweiszeile + „alle 14 Spalten nutzbar (1 mit abweichendem
 internen Namen)" + „Alles vollständig"; zusätzlich fehlende/falsch benannte Reiter-Spalten
 werden weiter als `⚠` gemeldet. Konsole fehlerfrei.
+
+## 2026-07-28 (5): Gesellschaften ausdünnen – Mehrfachauswahl + „Nur behalten“
+
+**Denis:** braucht nur 11 Domänen (dihag.com, shb-guss.de, walze-coswig.de, schmie-guss.de,
+meuselwitz-guss.de, ewa-guss.de, lintorfereg.de, dihag-gienanth.com, dihag-zaigler.com,
+dihag-hasenclever.com, schmie-cnc.de) – „der rest kann entfernt werden“. Die Domänensuche
+hatte deutlich mehr angelegt; einzeln löschen wäre mühsam.
+
+**`js/settings.js`, Reiter Gesellschaften:**
+- Auswahlspalte je Zeile plus Kopf-Checkbox „Alle auswählen“; Knopf
+  **🗑 n Ausgewählte löschen** zeigt die Anzahl und ist ohne Auswahl deaktiviert.
+- **🧹 Nur bestimmte behalten …**: Textfeld, eine Domäne je Zeile, mit den vorhandenen
+  Domänen vorbelegt. Führende `@` werden toleriert (so lässt sich direkt aus der Tabelle
+  kopieren), Trennung über `DATA.parseList` (Zeilenumbruch/Komma/Semikolon, klein, getrimmt).
+  Alles, was nicht in der Liste steht, geht in die Löschvorschau.
+- `bulkDelete(opfer)` löscht nie ungefragt: Vorschau listet **jeden** betroffenen Eintrag
+  namentlich; ist die **Standard-Gesellschaft** dabei, erscheint zusätzlich eine Warnung, dass
+  Konten mit unbekannter Domäne danach keine Zuordnung mehr bekommen. Hinweis, dass Reiter und
+  Kacheln unberührt bleiben (nur deren Domänenfilter kann wirkungslos werden).
+
+**Verifikation:** `node --check` 7/7, `tests/test-graph-fieldmap.mjs` 13/13.
+Browser mit realistischem Ausgangsstand (die 11 gewünschten + 4 Ballast-Domänen):
+- „Nur behalten“ mit exakt Denis' Liste **inklusive führender `@`** → Vorschau schlägt genau
+  altfirma.de, test.de, extern-partner.com, nichtmehr.de vor, keine Standard-Warnung; nach
+  Bestätigung bleiben 11 Einträge, Standard weiterhin dihag.com.
+- Checkbox-Weg: Auswahl aktualisiert den Knopftext („🗑 2 Ausgewählte löschen“), Auswahl der
+  Standard-Zeile blendet die Warnung ein, **Abbrechen ändert nichts** (11 Einträge unverändert),
+  „Alle auswählen“ → 11, Abwählen deaktiviert den Knopf wieder.
+Konsole fehlerfrei.

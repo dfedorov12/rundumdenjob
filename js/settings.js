@@ -123,12 +123,17 @@ const SETTINGS = (() => {
         <div class="row" style="margin-bottom:14px">
           <button class="btn" id="gNew">+ Domäne zuordnen</button>
           <button class="btn sec" id="gScan">🔍 Domänen im Tenant suchen</button>
+          <button class="btn sec" id="gKeep">🧹 Nur bestimmte behalten …</button>
+          <button class="btn danger" id="gBulk" disabled>🗑 Ausgewählte löschen</button>
         </div>
         <div class="tbl-wrap"><table class="tbl">
-          <thead><tr><th>Domäne</th><th>Gesellschaft</th><th>Kürzel</th><th>Farbe</th>
+          <thead><tr>
+            <th style="width:28px"><input type="checkbox" id="gAll" title="Alle auswählen"></th>
+            <th>Domäne</th><th>Gesellschaft</th><th>Kürzel</th><th>Farbe</th>
             <th>Standard</th><th>Sort.</th><th></th></tr></thead>
           <tbody>${rows.map(g => `
             <tr class="${g.Aktiv === false ? "off" : ""}">
+              <td><input type="checkbox" data-sel="${g.id}"></td>
               <td><b>@${esc(g.Title)}</b></td>
               <td>${esc(g.Gesellschaft || "–")}</td>
               <td>${esc(g.Kuerzel || "–")}</td>
@@ -139,16 +144,82 @@ const SETTINGS = (() => {
                 <button class="btn sec sm" data-edit="${g.id}">Bearbeiten</button>
                 <button class="btn danger sm" data-del="${g.id}">Löschen</button>
               </td></tr>`).join("") ||
-            `<tr><td colspan="7" style="color:var(--muted)">Noch keine Zuordnung angelegt.</td></tr>`}
+            `<tr><td colspan="8" style="color:var(--muted)">Noch keine Zuordnung angelegt.</td></tr>`}
           </tbody></table></div>
       </div>`;
 
-    $("gNew").onclick = () => editGes(null);
+    const sel = () => [...host.querySelectorAll("[data-sel]:checked")].map(i => i.dataset.sel);
+    const refresh = () => {
+      const n = sel().length;
+      const b = $("gBulk");
+      b.disabled = n === 0;
+      b.textContent = n ? `🗑 ${n} Ausgewählte löschen` : "🗑 Ausgewählte löschen";
+    };
+    host.querySelectorAll("[data-sel]").forEach(i => i.onchange = refresh);
+    $("gAll").onchange = e => {
+      host.querySelectorAll("[data-sel]").forEach(i => i.checked = e.target.checked);
+      refresh();
+    };
+
+    $("gNew").onclick  = () => editGes(null);
     $("gScan").onclick = scanDomains;
+    $("gKeep").onclick = () => keepOnly(rows);
+    $("gBulk").onclick = () => bulkDelete(rows.filter(r => sel().includes(r.id)));
     host.querySelectorAll("[data-edit]").forEach(b =>
       b.onclick = () => editGes(rows.find(r => r.id === b.dataset.edit)));
     host.querySelectorAll("[data-del]").forEach(b =>
       b.onclick = () => delRow(name, b.dataset.del, "Gesellschaft"));
+  }
+
+  /** Mehrere Zuordnungen auf einmal entfernen – mit vollständiger Vorschau. */
+  function bulkDelete(opfer) {
+    if (!opfer.length) return;
+    const standard = opfer.find(g => g.Standard === true);
+    APP.modal({
+      title: opfer.length + " Zuordnung" + (opfer.length === 1 ? "" : "en") + " löschen",
+      okText: "Endgültig löschen",
+      bodyHtml: `
+        <p>Diese Einträge werden aus <b>${esc(C.lists.gesellschaften)}</b> entfernt
+           (in SharePoint landen sie im Papierkorb der Website):</p>
+        <ul style="max-height:220px;overflow:auto;font-size:14px;line-height:1.7;margin:12px 0">
+          ${opfer.map(g => `<li><b>@${esc(g.Title)}</b> – ${esc(g.Gesellschaft || "")}</li>`).join("")}
+        </ul>
+        ${standard ? `<div class="warn">Darunter ist die <b>Standard-Gesellschaft</b>
+           (@${esc(standard.Title)}). Ohne sie bekommen Konten mit unbekannter Domäne keine
+           Gesellschaft mehr zugeordnet. Bitte danach eine andere als Standard markieren.</div>` : ""}
+        <p class="hint">Reiter und Kacheln bleiben unberührt. Nur wenn dort eine dieser
+          Domänen unter „Sichtbar für Domänen“ steht, wird sie dadurch wirkungslos.</p>`,
+      onOk: () => save(async () => {
+        for (const g of opfer) {
+          await GRAPH.deleteItem(C.configSite, C.lists.gesellschaften, g.id);
+        }
+      })
+    });
+  }
+
+  /** Liste von Domänen einfügen – alles andere wird zum Löschen vorgeschlagen. */
+  function keepOnly(rows) {
+    APP.modal({
+      title: "Nur bestimmte Domänen behalten",
+      okText: "Weiter",
+      bodyHtml: `
+        <p class="hint">Eine Domäne je Zeile (das <code>@</code> darf davor stehen).
+          Alles, was nicht in der Liste steht, wird anschließend zum Löschen vorgeschlagen –
+          gelöscht wird erst nach der Bestätigung im nächsten Schritt.</p>
+        <label class="f">Zu behaltende Domänen</label>
+        <textarea data-f="keep" style="min-height:180px;font-family:ui-monospace,Consolas,monospace"
+          placeholder="dihag.com&#10;shb-guss.de&#10;walze-coswig.de">${
+            esc(rows.map(g => g.Title).join("\n"))}</textarea>`,
+      onOk: async bg => {
+        const keep = new Set(DATA.parseList(
+          bg.querySelector("[data-f=keep]").value.replace(/^@/gm, "")));
+        if (!keep.size) { APP.toast("Bitte mindestens eine Domäne angeben.", true); return false; }
+        const weg = rows.filter(g => !keep.has(String(g.Title || "").toLowerCase().trim()));
+        if (!weg.length) { APP.toast("Es gibt nichts zu entfernen."); return true; }
+        setTimeout(() => bulkDelete(weg), 0);
+        return true;
+      }
+    });
   }
 
   function editGes(row) {
