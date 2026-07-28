@@ -107,6 +107,11 @@ Connect-MgGraph -Scopes "Application.ReadWrite.All","Sites.Manage.All","Sites.Re
 Alternativ komplett in der App: **Einstellungen → 🛠️ Einrichtung → Schritte 1–3**
 (dafür braucht das Konto das Recht, auf `/sites/IT` Listen anzulegen).
 
+Oder **von Hand in SharePoint** – das umgeht die Rechtefrage beim Anlegen komplett:
+[LISTEN-ANLEGEN.md](LISTEN-ANLEGEN.md) nennt alle drei Listen mit exaktem Spaltennamen und
+Typ. Die Diagnose in der App prüft anschließend jede Liste **und jede Spalte** und benennt
+Abweichungen einzeln.
+
 Schritt 4 des Skripts legt zusätzlich den Haupt-Administrator in `AppPermissions` an, damit er
 auch im Admin-Portal auftaucht.
 

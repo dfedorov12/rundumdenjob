@@ -203,7 +203,7 @@ Ensure-Columns "RUDJ_Kacheln" @(
     @{ name = "Typ";          kind = "text"     },
     @{ name = "Icon";         kind = "text"     },
     @{ name = "Beschreibung"; kind = "note"     },
-    @{ name = "Url";          kind = "text"     },
+    @{ name = "Url";          kind = "note"     },  # SP-URLs mit Parametern > 255 Zeichen
     @{ name = "Inhalt";       kind = "note"     },
     @{ name = "Badge";        kind = "text"     },
     @{ name = "Domains";      kind = "text"     },

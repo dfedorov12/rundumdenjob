@@ -7,7 +7,13 @@ const SEED = (() => {
 
   const G = GRAPH;
 
-  /* ── Spalten der drei Konfigurationslisten ───────────────────────── */
+  /* ── Spalten der drei Konfigurationslisten ───────────────────────────
+     Wichtig: „Einzelne Textzeile“ ist in SharePoint auf 255 Zeichen
+     begrenzt. Alles, was länger werden kann (Beschreibung, Url, Inhalt),
+     ist deshalb mehrzeiliger Klartext – NICHT Rich-Text, sonst liefert
+     Graph HTML zurück und die Kacheln zeigen Markup an.
+     Die hier verwendeten Namen sind gleichzeitig die internen Feldnamen;
+     dieselbe Liste steht in LISTEN-ANLEGEN.md für die Anlage per Hand. */
 
   const COLS = {
     gesellschaften: [
@@ -24,7 +30,7 @@ const SEED = (() => {
       G.colText("ReiterKey", 60),
       G.colText("Icon", 10),
       G.colNote("Beschreibung"),
-      G.colText("Domains", 500),
+      G.colText("Domains", 255),
       G.colText("MinRolle", 20),
       G.colBool("Aktiv"),
       G.colNum("Sortierung")
@@ -35,16 +41,24 @@ const SEED = (() => {
       G.colText("Typ", 20),
       G.colText("Icon", 10),
       G.colNote("Beschreibung"),
-      G.colText("Url", 900),
+      G.colNote("Url"),          // SharePoint-URLs mit Parametern > 255 Zeichen
       G.colNote("Inhalt"),
       G.colText("Badge", 30),
-      G.colText("Domains", 500),
+      G.colText("Domains", 255),
       G.colText("MinRolle", 20),
       G.colBool("Aktiv"),
       G.colNum("Sortierung"),
       G.colDate("GueltigVon"),
       G.colDate("GueltigBis")
     ]
+  };
+
+  /** Erwartete Feldnamen je Liste – für die Spaltenprüfung in der Diagnose. */
+  const EXPECTED = {
+    gesellschaften: ["Title", "Gesellschaft", "Kuerzel", "Farbe", "Standard", "Aktiv", "Sortierung"],
+    reiter:         ["Title", "ReiterKey", "Icon", "Beschreibung", "Domains", "MinRolle", "Aktiv", "Sortierung"],
+    kacheln:        ["Title", "ReiterKey", "Typ", "Icon", "Beschreibung", "Url", "Inhalt", "Badge",
+                     "Domains", "MinRolle", "Aktiv", "Sortierung", "GueltigVon", "GueltigBis"]
   };
 
   /* ── Startinhalte ────────────────────────────────────────────────── */
@@ -187,5 +201,5 @@ const SEED = (() => {
     }
   }
 
-  return { COLS, REITER, KACHELN, ensureLists, seedGesellschaften, seedContent };
+  return { COLS, EXPECTED, REITER, KACHELN, ensureLists, seedGesellschaften, seedContent };
 })();

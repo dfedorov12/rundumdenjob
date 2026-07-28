@@ -639,17 +639,54 @@ const SETTINGS = (() => {
       } catch (e) {
         log("✗ Listen nicht lesbar: " + (e.detail || e.message));
       }
-      for (const name of Object.values(C.lists)) {
+      let alleDa = true;
+      for (const [key, name] of Object.entries(C.lists)) {
         try {
           await GRAPH.call(`/sites/${sid}/lists/${encodeURIComponent(name)}`);
-          log("✓ " + name + " – vorhanden");
         } catch (e) {
+          alleDa = false;
           log((e.status === 404 ? "· " : "✗ ") + name + " – "
             + (e.status === 404 ? "fehlt noch (muss angelegt werden)" : (e.detail || e.message)));
+          continue;
+        }
+        log("✓ " + name + " – vorhanden");
+        // Spalten prüfen – deckt Tippfehler beim Anlegen per Hand auf
+        try {
+          const cols = await GRAPH.call(
+            `/sites/${sid}/lists/${encodeURIComponent(name)}/columns?$select=name,displayName&$top=200`);
+          const vorhanden = new Set((cols.value || []).map(c => c.name));
+          const fehlt = (SEED.EXPECTED[key] || []).filter(n => !vorhanden.has(n));
+          if (fehlt.length) {
+            alleDa = false;
+            log("   ⚠ fehlende Spalten: " + fehlt.join(", "));
+            const aehnlich = fehlt.map(f => {
+              const kand = (cols.value || []).find(c =>
+                c.name.toLowerCase() === f.toLowerCase() ||
+                (c.displayName || "").toLowerCase() === f.toLowerCase());
+              return kand && kand.name !== f ? `${f} → heißt intern „${kand.name}“` : null;
+            }).filter(Boolean);
+            if (aehnlich.length) log("   ↳ " + aehnlich.join("; "));
+          } else {
+            log("   ✓ alle " + SEED.EXPECTED[key].length + " Spalten vorhanden");
+          }
+        } catch (e) {
+          // Ohne Spaltenliste ist Vollständigkeit nicht belegt – nicht grün melden.
+          alleDa = false;
+          log("   ⚠ Spalten nicht lesbar: " + (e.detail || e.message));
         }
       }
-      log("\nNächster Schritt: „🧪 Schreibtest auf der Site“ – er zeigt, ob das Konto\n"
-        + "auf dieser Site überhaupt Listen anlegen darf.");
+
+      log("");
+      if (alleDa) {
+        log("Alles vollständig. Weiter mit „2 · Gesellschaften aus Tenant übernehmen“");
+        log("und „3 · Startinhalte anlegen“ – beide brauchen nur Schreibrechte auf");
+        log("Listeneinträge, keinen Vollzugriff auf die Website.");
+      } else {
+        log("Zum Anlegen per Hand: LISTEN-ANLEGEN.md im Repository nennt alle Spalten");
+        log("mit exaktem Namen und Typ. Danach diese Diagnose erneut ausführen.");
+        log("Alternativ zeigt „🧪 Schreibtest auf der Site“, ob die App die Listen");
+        log("selbst anlegen darf.");
+      }
     } catch (e) {
       log("✗ Unerwarteter Fehler: " + (e.detail || e.message));
     } finally {

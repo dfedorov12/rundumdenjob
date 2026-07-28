@@ -176,3 +176,52 @@ Fehler. `-AppOnly` ohne Client-Id/Secret bricht wie vorgesehen mit
 403-Zweig des Schreibtests gibt den korrigierten Text mit allen drei Wegen aus, Konsole
 fehlerfrei. Der App-only-Graph-Pfad selbst ist unverifiziert – dafür wäre ein Client Secret
 nötig, das hier nicht vorliegt.
+
+## 2026-07-28 (3): Listen von Hand anlegen – Spaltenvorgabe + Spaltenprüfung
+
+**Denis:** „wahrscheinlich ist es besser wenn ich die listen selbst erstelle!"
+
+**Zwei eigene Fehler beim Aufschreiben der Vorgabe gefunden und behoben** (`js/seed.js`,
+`setup-rundumdenjob.ps1`): „Einzelne Textzeile" ist in SharePoint auf **255 Zeichen**
+begrenzt, `colText("Domains", 500)` und `colText("Url", 900)` waren also ungültig.
+`Domains` → 255; `Url` → mehrzeiliger Klartext (SharePoint-URLs mit Parametern können
+255 Zeichen überschreiten). Im PS-Skript `Url` von `text` auf `note` geändert.
+
+**Neu `LISTEN-ANLEGEN.md`:** vollständige Anlage-Anleitung für die drei Listen mit exaktem
+Spaltennamen, SharePoint-Typ und Zweck; vorangestellt fünf Regeln, an denen es sonst
+scheitert – Name = interner Feldname und nachträglich nicht änderbar; keine Leerzeichen/
+Umlaute (daher `Kuerzel`, `GueltigVon`); mehrzeilig immer **Nur Text**, nie Rich-Text
+(sonst liefert Graph HTML und die Kacheln zeigen Markup); `Title` nicht anlegen, nur
+umbenennen; Standardwerte der Ja/Nein-Spalten. Plus Berechtigungs- und Kontrollabschnitt.
+
+**`js/seed.js`:** neues Export `EXPECTED` (erwartete Feldnamen je Liste, inkl. `Title`).
+
+**`js/settings.js` – Diagnose prüft jetzt auch Spalten:** je vorhandener Liste werden die
+Spalten gelesen und gegen `SEED.EXPECTED` abgeglichen. Fehlende werden namentlich genannt;
+weicht nur die Schreibweise ab, wird der tatsächliche interne Name aufgelöst
+(`Domains → heißt intern „Domaenen"`) – genau der Fall, der beim Anlegen per Hand passiert.
+Am Ende entweder „Alles vollständig" mit Verweis auf Schritt 2/3, oder Verweis auf
+LISTEN-ANLEGEN.md.
+
+**Dabei einen echten Fehler in der eigenen Diagnose gefunden:** waren die Spalten nicht
+lesbar, wurde trotzdem „Alles vollständig" gemeldet. `alleDa = false` im catch nachgezogen –
+ohne Spaltenliste ist Vollständigkeit nicht belegt.
+
+**`_test.html`:** Skripte werden per `document.write` mit Cache-Buster geladen (der Browser
+hatte eine alte `seed.js` behalten und die Prüfung dadurch verfälscht – erst dadurch fiel
+auf, dass `SEED.EXPECTED` gar nicht ankam). Stub liefert jetzt auch `/columns` und kann per
+`TESTDB.colTypo` einen Tippfehler simulieren.
+
+**`README.md`:** Einrichtung nennt den Weg „von Hand in SharePoint" mit Link auf
+LISTEN-ANLEGEN.md.
+
+**Verifikation:** `node --check` 7/7. Browser:
+- Fall A (korrekt angelegt): `✓ alle 7 / 8 / 14 Spalten vorhanden` + „Alles vollständig".
+- Fall B (`Domains` als `Domaenen`, `MinRolle` fehlt): „⚠ fehlende Spalten: Domains,
+  MinRolle" und „↳ Domains → heißt intern „Domaenen"" – unterscheidet also eine wirklich
+  fehlende von einer falsch benannten Spalte.
+- Schritte 2 + 3 gegen von Hand angelegte Listen bei weiterhin verbotenem Listen-Anlegen
+  (`denyWrite = true`): 3 Gesellschaften / 8 Reiter / 16 Kacheln, Gesellschaft erkannt.
+  Bestätigt, dass für den Betrieb nur Item-Schreibrechte nötig sind.
+- Spaltenspezifikation gegengeprüft: `Url` mehrzeilig, `Domains` maxLength 255.
+Konsole fehlerfrei.
