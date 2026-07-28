@@ -55,6 +55,26 @@ const AUTH = (() => {
     throw new Error("Nicht angemeldet");
   }
 
+  /** Liest die Nutzlast des Access-Tokens aus (nur zur Diagnose – die
+   *  Signatur wird bewusst nicht geprüft, das macht Graph).
+   *  @returns {{scopes:string[], upn:string, appId:string, exp:Date|null}|null} */
+  function tokenInfo() {
+    const t = _tok || loadTok();
+    if (!t) return null;
+    try {
+      const p = t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      const json = decodeURIComponent(atob(p + "=".repeat((4 - p.length % 4) % 4))
+        .split("").map(c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join(""));
+      const d = JSON.parse(json);
+      return {
+        scopes: String(d.scp || "").split(" ").filter(Boolean),
+        upn: d.upn || d.preferred_username || "",
+        appId: d.appid || d.azp || "",
+        exp: d.exp ? new Date(d.exp * 1000) : null
+      };
+    } catch { return null; }
+  }
+
   /** Startet den Redirect zur Anmeldeseite.
    *  @param {"none"|"select_account"} promptMode */
   async function startLogin(promptMode) {
@@ -149,5 +169,5 @@ const AUTH = (() => {
       + `?post_logout_redirect_uri=${encodeURIComponent(RURI)}`;
   }
 
-  return { signIn, startLogin, getToken, logout };
+  return { signIn, startLogin, getToken, tokenInfo, logout };
 })();

@@ -117,6 +117,37 @@ Schritt lässt sich gefahrlos wiederholen.
 
 ---
 
+## Fehlersuche
+
+### „Access denied" beim Anlegen der Listen
+
+Die Meldung kommt von SharePoint und hat genau zwei mögliche Ursachen. *Einstellungen →
+🛠️ Einrichtung → 🩺 Diagnose* unterscheidet sie:
+
+1. **`Sites.ReadWrite.All` fehlt im Token.** Die Diagnose listet die Berechtigungen des
+   Access-Tokens (`scp`-Claim). Fehlt der Eintrag, muss die Berechtigung an der
+   App-Registrierung als *delegierte* Berechtigung hinterlegt **und** per
+   Administratorzustimmung erteilt werden. Danach abmelden und neu anmelden – erst dann
+   enthält das neue Token den Scope.
+2. **Das Konto darf auf der Site keine Listen anlegen.** Der Knopf *🧪 Schreibtest auf der
+   Site* legt eine Hilfsliste `RUDJ_Schreibtest` an und löscht sie sofort wieder. Scheitert
+   er mit 403, ist es eine SharePoint-Websiteberechtigung: Konto auf `/sites/IT` zum
+   Websitebesitzer machen – oder die Listen einmalig per PowerShell anlegen:
+
+```powershell
+Connect-MgGraph -Scopes "Sites.Manage.All","Sites.ReadWrite.All"
+./setup-rundumdenjob.ps1 -SkipAppReg
+```
+
+Fehlermeldungen im Einrichtungs-Protokoll nennen jetzt immer Methode, Pfad, HTTP-Status und
+Graph-Fehlercode – also z. B. `POST /sites/…/lists → HTTP 403 accessDenied: Access denied`
+statt nur `Access denied`.
+
+### „AADSTS50011" direkt beim Aufruf
+
+Die Redirect-URI `https://dfedorov12.github.io/rundumdenjob/` fehlt in der
+App-Registrierung (Abschnitt *Einrichtung*, Schritt 1).
+
 ## Aufbau
 
 ```

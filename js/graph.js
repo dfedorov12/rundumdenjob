@@ -26,6 +26,10 @@ const GRAPH = (() => {
       const err = new Error(msg);
       err.status = res.status;
       err.code = data?.error?.code;
+      // Für die Diagnose: welcher Aufruf ist womit gescheitert?
+      err.request = (opts.method || "GET") + " " + path.replace(BASE, "");
+      err.detail = `${err.request} → HTTP ${res.status}`
+        + (err.code ? ` ${err.code}` : "") + `: ${msg}`;
       throw err;
     }
     return data;

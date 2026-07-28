@@ -539,6 +539,24 @@ const SETTINGS = (() => {
           hidden></pre>
       </div>
       <div class="card">
+        <h4>🩺 Diagnose</h4>
+        <p class="hint">Scheitert das Anlegen mit <b>Access denied</b>, liegt es an einer von zwei
+          Ursachen: entweder fehlt dem Token die Berechtigung <b>Sites.ReadWrite.All</b>
+          (App-Registrierung / Admin-Zustimmung), oder das angemeldete Konto darf auf
+          <b>${esc(C.configSite)}</b> keine Listen anlegen (SharePoint-Websiteberechtigung).
+          Die Diagnose unterscheidet beides.</p>
+        <div class="row">
+          <button class="btn" id="dRun">🔍 Diagnose starten</button>
+          <button class="btn sec" id="dWrite">🧪 Schreibtest auf der Site</button>
+        </div>
+        <p class="hint" style="margin:12px 0 0">Der Schreibtest legt eine Hilfsliste
+          <code>RUDJ_Schreibtest</code> an und löscht sie sofort wieder – er verändert nichts
+          an Ihrer Konfiguration.</p>
+        <pre id="dLog" style="margin-top:16px;background:#f7fafd;border:1px solid var(--border);
+          border-radius:8px;padding:12px;font-size:12.5px;max-height:320px;overflow:auto"
+          hidden></pre>
+      </div>
+      <div class="card">
         <h4>ℹ️ So funktioniert die Sichtbarkeit</h4>
         <ol style="font-size:14px;color:var(--text);padding-left:20px;line-height:1.8;margin:0">
           <li>Beim Anmelden liest die Seite die E-Mail-Domäne des Kontos
@@ -558,7 +576,11 @@ const SETTINGS = (() => {
     const run = async (btn, fn, done) => {
       btn.disabled = true;
       try { await fn(); log("✓ " + done); DATA.clearCache(); await DATA.loadConfig(true); }
-      catch (e) { log("✗ " + e.message); APP.toast(e.message, true); }
+      catch (e) {
+        log("✗ " + (e.detail || e.message));
+        if (e.status === 403) log("  → Ursache eingrenzen: Karte „🩺 Diagnose“ unten.");
+        APP.toast(e.message, true);
+      }
       finally { btn.disabled = false; }
     };
 
@@ -566,6 +588,127 @@ const SETTINGS = (() => {
     $("sGes").onclick   = e => run(e.target, () => SEED.seedGesellschaften(log), "Gesellschaften übernommen.");
     $("sCont").onclick  = e => run(e.target, () => SEED.seedContent(log), "Startinhalte angelegt.");
     $("sReload").onclick = () => APP.reload();
+
+    const dlog = m => { const p = $("dLog"); p.hidden = false; p.textContent += m + "\n"; p.scrollTop = p.scrollHeight; };
+    $("dRun").onclick   = e => diagnose(e.target, dlog);
+    $("dWrite").onclick = e => writeTest(e.target, dlog);
+  }
+
+  /** Nur-Lese-Diagnose: Konto, Token-Berechtigungen, Site- und Listenzugriff. */
+  async function diagnose(btn, log) {
+    btn.disabled = true;
+    $("dLog").textContent = "";
+    try {
+      log("── Konto ──────────────────────────────");
+      log("Angemeldet:      " + DATA.ctx.email);
+      log("Ermittelte Rolle: " + DATA.ctx.role);
+
+      log("\n── Token ──────────────────────────────");
+      const ti = AUTH.tokenInfo();
+      if (!ti) {
+        log("Token nicht lesbar – bitte neu anmelden.");
+      } else {
+        log("App-Registrierung: " + (ti.appId || "?"));
+        log("Gültig bis:        " + (ti.exp ? ti.exp.toLocaleString("de-DE") : "?"));
+        log("Berechtigungen:    " + (ti.scopes.join(", ") || "(keine)"));
+        const fehlt = C.scopes.filter(s => !ti.scopes.includes(s));
+        if (fehlt.length) {
+          log("⚠ NICHT im Token:  " + fehlt.join(", "));
+          if (fehlt.includes("Sites.ReadWrite.All"))
+            log("  → Das ist die Ursache. Sites.ReadWrite.All muss an der App-Registrierung\n"
+              + "    " + (ti.appId || C.clientId) + " als delegierte Berechtigung stehen\n"
+              + "    UND per Administratorzustimmung erteilt sein. Danach abmelden und neu anmelden.");
+        } else {
+          log("✓ Alle benötigten Berechtigungen sind im Token enthalten.");
+        }
+      }
+
+      log("\n── SharePoint ─────────────────────────");
+      let sid = null;
+      try {
+        const s = await GRAPH.call("/sites/" + C.configSite);
+        sid = s.id;
+        log("✓ Site lesbar: " + s.webUrl);
+      } catch (e) {
+        log("✗ Site nicht lesbar: " + (e.detail || e.message));
+        return;
+      }
+      try {
+        const l = await GRAPH.call(`/sites/${sid}/lists?$select=name&$top=200`);
+        log("✓ Listen der Site lesbar (" + (l.value || []).length + " Stück).");
+      } catch (e) {
+        log("✗ Listen nicht lesbar: " + (e.detail || e.message));
+      }
+      for (const name of Object.values(C.lists)) {
+        try {
+          await GRAPH.call(`/sites/${sid}/lists/${encodeURIComponent(name)}`);
+          log("✓ " + name + " – vorhanden");
+        } catch (e) {
+          log((e.status === 404 ? "· " : "✗ ") + name + " – "
+            + (e.status === 404 ? "fehlt noch (muss angelegt werden)" : (e.detail || e.message)));
+        }
+      }
+      log("\nNächster Schritt: „🧪 Schreibtest auf der Site“ – er zeigt, ob das Konto\n"
+        + "auf dieser Site überhaupt Listen anlegen darf.");
+    } catch (e) {
+      log("✗ Unerwarteter Fehler: " + (e.detail || e.message));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  /** Legt eine Hilfsliste an und entfernt sie sofort wieder. */
+  async function writeTest(btn, log) {
+    const probe = "RUDJ_Schreibtest";
+    btn.disabled = true;
+    try {
+      log("\n── Schreibtest ────────────────────────");
+      const sid = await GRAPH.siteId(C.configSite);
+
+      let existing = null;
+      try { existing = await GRAPH.call(`/sites/${sid}/lists/${probe}`); } catch {}
+      if (existing) {
+        log("· Hilfsliste aus einem früheren Test gefunden – wird aufgeräumt.");
+        try { await GRAPH.call(`/sites/${sid}/lists/${existing.id}`, { method: "DELETE" }); }
+        catch (e) { log("  (Aufräumen fehlgeschlagen: " + (e.detail || e.message) + ")"); }
+      }
+
+      let created;
+      try {
+        created = await GRAPH.call(`/sites/${sid}/lists`, {
+          method: "POST",
+          body: JSON.stringify({ displayName: probe, list: { template: "genericList" } })
+        });
+        log("✓ Liste anlegen hat funktioniert.");
+      } catch (e) {
+        log("✗ Liste anlegen fehlgeschlagen: " + (e.detail || e.message));
+        if (e.status === 403) {
+          log("\nDamit ist die Ursache eingegrenzt:");
+          log("Das Token ist in Ordnung, aber " + DATA.ctx.email);
+          log("darf auf " + C.configSite);
+          log("keine Listen anlegen (SharePoint-Websiteberechtigung).");
+          log("\nZwei Wege:");
+          log("a) Konto auf der Site zum Websitebesitzer machen (Websiteberechtigungen).");
+          log("b) Listen einmalig per PowerShell anlegen – das umgeht die App komplett:");
+          log("   Connect-MgGraph -Scopes \"Sites.Manage.All\",\"Sites.ReadWrite.All\"");
+          log("   ./setup-rundumdenjob.ps1 -SkipAppReg");
+        }
+        return;
+      }
+
+      try {
+        await GRAPH.call(`/sites/${sid}/lists/${created.id}`, { method: "DELETE" });
+        log("✓ Hilfsliste wieder entfernt – Konfiguration unverändert.");
+      } catch (e) {
+        log("⚠ Hilfsliste konnte nicht entfernt werden: " + (e.detail || e.message));
+        log("  Bitte die Liste „" + probe + "“ in SharePoint manuell löschen.");
+      }
+      log("\nErgebnis: Die Rechte reichen aus. „1 · Listen anlegen“ sollte jetzt durchlaufen.");
+    } catch (e) {
+      log("✗ Unerwarteter Fehler: " + (e.detail || e.message));
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   return { render };

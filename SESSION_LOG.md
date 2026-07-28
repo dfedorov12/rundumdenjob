@@ -95,3 +95,44 @@ Ein Reiter ohne Treffer verschwindet komplett aus der Navigation. Kacheltypen: `
 zweiten Konto (`fedorov@dihag.com`, kein Listeneintrag): bekommt `viewer`, sieht weder
 Einstellungen noch Führungskräfte-Reiter, und wird über einen `AppPermissions`-Eintrag korrekt
 auf `editor` gehoben. Konsole fehlerfrei.
+
+## 2026-07-28 (1): „Access denied" bei der Einrichtung – Diagnose eingebaut
+
+**Denis:** Meldung beim Schritt „1 · Listen anlegen":
+`Liste „RUDJ_Gesellschaften" wird geprüft … ✗ Access denied`
+
+Ursache liegt außerhalb der App (SharePoint bzw. Token), war aber aus der Meldung nicht
+unterscheidbar. Statt zu raten, macht die App den Fall jetzt selbst diagnostizierbar.
+
+- `js/graph.js`: Fehler tragen zusätzlich `request` und `detail`
+  (`METHOD /pfad → HTTP <status> <code>: <message>`). Damit steht im Protokoll, *welcher*
+  Aufruf gescheitert ist – der Listen-GET (404 = fehlt, harmlos) oder der Listen-POST (403).
+- `js/auth.js`: neue Funktion `tokenInfo()` – dekodiert die Nutzlast des Access-Tokens
+  (base64url, ohne Signaturprüfung, rein zur Diagnose) und liefert `scopes` (`scp`), `upn`,
+  `appId` und `exp`.
+- `js/settings.js`:
+  - Einrichtungs-Protokoll nutzt `e.detail` und verweist bei 403 auf die Diagnose-Karte.
+  - Neue Karte **🩺 Diagnose** mit zwei Knöpfen:
+    - *🔍 Diagnose starten* (nur lesend): Konto + Rolle, App-Registrierung, Token-Ablauf,
+      Token-Scopes inkl. Abgleich gegen `C.scopes` samt Klartext-Hinweis, wenn
+      `Sites.ReadWrite.All` fehlt; danach Site lesbar?, Listen der Site lesbar?, und je
+      Konfigurationsliste vorhanden / fehlt (404) / Fehler.
+    - *🧪 Schreibtest auf der Site*: legt `RUDJ_Schreibtest` an und löscht sie sofort wieder
+      (räumt auch eine Liste aus einem früheren Test auf). Bei 403 folgt die Auflösung
+      „Token ok, aber Konto darf auf der Site keine Listen anlegen" mit beiden Auswegen
+      (Websitebesitzer bzw. `setup-rundumdenjob.ps1 -SkipAppReg`).
+- `README.md`: neuer Abschnitt **Fehlersuche** für „Access denied" und AADSTS50011.
+
+**Verifikation:** `node --check` 7/7. Test-Harness um steuerbare Fehlerfälle erweitert
+(`TESTDB.scopes`, `TESTDB.denyWrite`, `TESTDB.listsMissing`, echtes Test-JWT via `mkTestToken`,
+Site-/Listen-Pfade im GRAPH-Stub). Geprüft im Browser:
+- Fall A (Scope fehlt): Diagnose weist `Sites.ReadWrite.All` als „NICHT im Token" aus und
+  nennt App-Registrierung + nötige Admin-Zustimmung.
+- Fall B (Scope vorhanden, Site verweigert): Diagnose meldet „alle Berechtigungen enthalten",
+  Site + Listen lesbar, drei Listen „fehlt noch"; Schreibtest liefert
+  `POST /sites/…/lists → HTTP 403 accessDenied` samt Auflösung und beiden Auswegen.
+- Erfolgsfall: Schreibtest legt an, löscht wieder (`probeDeleted = true`), Konfiguration
+  unverändert.
+- Einrichtungs-Protokoll zeigt bei 403 jetzt `POST /sites/…/lists → HTTP 403 accessDenied:
+  Access denied` plus Verweis auf die Diagnose-Karte.
+Konsole fehlerfrei.
