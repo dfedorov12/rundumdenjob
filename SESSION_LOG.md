@@ -225,3 +225,51 @@ LISTEN-ANLEGEN.md.
   Bestätigt, dass für den Betrieb nur Item-Schreibrechte nötig sind.
 - Spaltenspezifikation gegengeprüft: `Url` mehrzeilig, `Domains` maxLength 255.
 Konsole fehlerfrei.
+
+## 2026-07-28 (4): Spaltennamen-Toleranz – „Typ" heißt in SharePoint „Typ2"
+
+**Denis:** „es heißt statt Typ, Typ2"
+
+SharePoint hat beim Anlegen der Spalte `Typ` den internen Namen `Typ2` vergeben – derselbe
+Fallstrick wie `Version` → `Version1` im Richtlinienmanagement. **Nicht** im Code umbenannt,
+sondern die App tolerant gemacht; sonst bricht es beim nächsten Neuanlegen wieder, und die
+Anleitung müsste je Umgebung anders lauten.
+
+**`js/graph.js` – neue Zuordnungsschicht:**
+- `columns(site, liste)` liest `name` + `displayName`.
+- `fieldMap(site, liste, erwartet, force)` baut je Liste einmalig „erwarteter Name → tatsächlicher
+  interner Name“. Auflösungsreihenfolge: exakter Treffer → Ziffernanhang (`^Typ\d+$` → `Typ2`)
+  → gleicher Anzeigename → gleiche Schreibweise case-insensitiv → unabgebildet (Spalte fehlt
+  wirklich).
+- `normalize()` beim Lesen: der App-Code benutzt weiter `k.Typ`, das Rohfeld `Typ2` bleibt
+  zusätzlich erhalten. `denormalize()` beim Schreiben: `Typ` geht als `Typ2` raus; Felder, deren
+  Spalte fehlt, werden mit `console.warn` verworfen statt einen 400 auszulösen.
+- `listItems(site, name, expected, top)` – dritter Parameter neu (vorher `top`; kein Aufrufer
+  hatte ihn gesetzt), aktiviert die Toleranz. `addItem`/`updateItem` wenden sie automatisch an,
+  sobald die Zuordnung im Cache steht. `clearColumnCache()` wird von `DATA.clearCache()`
+  mitgerufen, damit eine in SharePoint korrigierte Spalte sofort greift.
+
+**Aufrufer nachgezogen:** `data.js` (Konfigurationslisten mit `SEED.EXPECTED.*`, AppPermissions
+mit `["Title","UserEmail","App","Role"]`), `seed.js` (alle drei Dedup-Abfragen), `settings.js`
+(Berechtigungsliste).
+
+**Diagnose unterscheidet jetzt drei Fälle** statt zwei: `✓ alle N Spalten nutzbar`,
+`· Typ heißt intern „Typ2" – wird automatisch berücksichtigt` (Hinweis, kein Fehler) und
+`⚠ fehlende Spalten: …` (nicht zuordenbar). `fieldMap` wird dort mit `force=true` gerufen,
+damit die Prüfung nie aus dem Cache kommt.
+
+**Neuer Node-Test `tests/test-graph-fieldmap.mjs`:** Das Browser-Harness ersetzt `GRAPH`
+komplett – die neue Logik wäre dort ungetestet geblieben. Der Test lädt die **echte**
+`js/graph.js` in einen `vm`-Kontext und stubt nur `fetch` und `AUTH.getToken`.
+**13/13 grün:** `Typ`→`Typ2` abgebildet, exakte Namen unverändert, fehlendes `Badge` und
+wirklich anders benanntes `Domaenen` bleiben unabgebildet, Lesen liefert `Typ` aus `Typ2`,
+Schreiben sendet `Typ2` und lässt `Badge` weg, PATCH ebenso, und nach `clearColumnCache()`
+greift eine korrigierte Spalte.
+
+**`LISTEN-ANLEGEN.md`:** Regel 1 erklärt den Ziffernanhang samt Beispielausgabe und grenzt ihn
+gegen einen wirklich falschen Namen ab; Kontrollabschnitt auf die drei Meldungsarten umgestellt.
+
+**Browser-Verifikation** (Harness um `TESTDB.typ2` und `/columns` erweitert, `fieldMap` im Stub
+nachgebildet): Fall `Typ2` → Hinweiszeile + „alle 14 Spalten nutzbar (1 mit abweichendem
+internen Namen)" + „Alles vollständig"; zusätzlich fehlende/falsch benannte Reiter-Spalten
+werden weiter als `⚠` gemeldet. Konsole fehlerfrei.

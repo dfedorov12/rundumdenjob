@@ -71,7 +71,7 @@ const DATA = (() => {
   async function loadRole() {
     if (isHauptAdmin(ctx.email)) return "admin";
     try {
-      const rows = await GRAPH.listItems(C.permSite, C.permList);
+      const rows = await GRAPH.listItems(C.permSite, C.permList, ["Title", "UserEmail", "App", "Role"]);
       if (!rows) return C.defaultRole;
       let best = RANK[C.defaultRole] ?? 1;
       for (const r of rows) {
@@ -109,9 +109,9 @@ const DATA = (() => {
 
     cfg.missing = [];
     const [ges, rei, kac] = await Promise.all([
-      GRAPH.listItems(C.configSite, C.lists.gesellschaften).catch(() => null),
-      GRAPH.listItems(C.configSite, C.lists.reiter).catch(() => null),
-      GRAPH.listItems(C.configSite, C.lists.kacheln).catch(() => null)
+      GRAPH.listItems(C.configSite, C.lists.gesellschaften, SEED.EXPECTED.gesellschaften).catch(() => null),
+      GRAPH.listItems(C.configSite, C.lists.reiter,         SEED.EXPECTED.reiter).catch(() => null),
+      GRAPH.listItems(C.configSite, C.lists.kacheln,        SEED.EXPECTED.kacheln).catch(() => null)
     ]);
     if (ges === null) cfg.missing.push(C.lists.gesellschaften);
     if (rei === null) cfg.missing.push(C.lists.reiter);
@@ -132,7 +132,10 @@ const DATA = (() => {
     return cfg;
   }
 
-  function clearCache() { try { sessionStorage.removeItem("rudj_cfg"); } catch {} }
+  function clearCache() {
+    try { sessionStorage.removeItem("rudj_cfg"); } catch {}
+    GRAPH.clearColumnCache();   // Spaltenzuordnung neu ermitteln
+  }
 
   /** Automatische Zuordnung: E-Mail-Domäne → Gesellschaft. */
   function resolveGesellschaft() {

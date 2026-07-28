@@ -460,7 +460,7 @@ const SETTINGS = (() => {
     $("pNew").onclick = () => editPerm();
 
     try {
-      const rows = (await GRAPH.listItems(C.permSite, C.permList)) || [];
+      const rows = (await GRAPH.listItems(C.permSite, C.permList, ["Title", "UserEmail", "App", "Role"])) || [];
       const mine = rows.filter(r => r.App === C.appKey || r.App === "*")
         .sort((a, b) => (a.UserEmail || "").localeCompare(b.UserEmail || ""));
       $("pBox").innerHTML = `
@@ -650,24 +650,24 @@ const SETTINGS = (() => {
           continue;
         }
         log("✓ " + name + " – vorhanden");
-        // Spalten prüfen – deckt Tippfehler beim Anlegen per Hand auf
+        // Spalten prüfen. Abweichende interne Namen (z. B. Typ → Typ2) werden
+        // von der App automatisch aufgelöst und hier nur gemeldet.
         try {
-          const cols = await GRAPH.call(
-            `/sites/${sid}/lists/${encodeURIComponent(name)}/columns?$select=name,displayName&$top=200`);
-          const vorhanden = new Set((cols.value || []).map(c => c.name));
-          const fehlt = (SEED.EXPECTED[key] || []).filter(n => !vorhanden.has(n));
+          const erwartet = SEED.EXPECTED[key] || [];
+          const map = await GRAPH.fieldMap(C.configSite, name, erwartet, true);
+          const fehlt    = erwartet.filter(n => !map[n]);
+          const abweichend = erwartet.filter(n => map[n] && map[n] !== n);
+
           if (fehlt.length) {
             alleDa = false;
             log("   ⚠ fehlende Spalten: " + fehlt.join(", "));
-            const aehnlich = fehlt.map(f => {
-              const kand = (cols.value || []).find(c =>
-                c.name.toLowerCase() === f.toLowerCase() ||
-                (c.displayName || "").toLowerCase() === f.toLowerCase());
-              return kand && kand.name !== f ? `${f} → heißt intern „${kand.name}“` : null;
-            }).filter(Boolean);
-            if (aehnlich.length) log("   ↳ " + aehnlich.join("; "));
-          } else {
-            log("   ✓ alle " + SEED.EXPECTED[key].length + " Spalten vorhanden");
+          }
+          if (abweichend.length) {
+            for (const n of abweichend) log(`   · ${n} heißt intern „${map[n]}“ – wird automatisch berücksichtigt`);
+          }
+          if (!fehlt.length) {
+            log("   ✓ alle " + erwartet.length + " Spalten nutzbar"
+              + (abweichend.length ? ` (${abweichend.length} mit abweichendem internen Namen)` : ""));
           }
         } catch (e) {
           // Ohne Spaltenliste ist Vollständigkeit nicht belegt – nicht grün melden.

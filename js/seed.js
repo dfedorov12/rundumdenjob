@@ -163,7 +163,7 @@ const SEED = (() => {
   /** Legt Standard-Gesellschaften aus den im Tenant gefundenen Domänen an. */
   async function seedGesellschaften(onLog = () => {}) {
     const C = RUDJ_CONFIG;
-    const existing = (await GRAPH.listItems(C.configSite, C.lists.gesellschaften)) || [];
+    const existing = (await GRAPH.listItems(C.configSite, C.lists.gesellschaften, EXPECTED.gesellschaften)) || [];
     const have = new Set(existing.map(g => String(g.Title || "").toLowerCase()));
     const found = await DATA.discoverDomains();
     let i = existing.length;
@@ -185,14 +185,14 @@ const SEED = (() => {
 
   async function seedContent(onLog = () => {}) {
     const C = RUDJ_CONFIG;
-    const rExist = (await GRAPH.listItems(C.configSite, C.lists.reiter)) || [];
+    const rExist = (await GRAPH.listItems(C.configSite, C.lists.reiter, EXPECTED.reiter)) || [];
     const rHave = new Set(rExist.map(r => r.ReiterKey));
     for (const r of REITER) {
       if (rHave.has(r.ReiterKey)) continue;
       await GRAPH.addItem(C.configSite, C.lists.reiter, r);
       onLog(`Reiter „${r.Title}“ angelegt.`);
     }
-    const kExist = (await GRAPH.listItems(C.configSite, C.lists.kacheln)) || [];
+    const kExist = (await GRAPH.listItems(C.configSite, C.lists.kacheln, EXPECTED.kacheln)) || [];
     const kHave = new Set(kExist.map(k => k.ReiterKey + "|" + k.Title));
     for (const k of KACHELN) {
       if (kHave.has(k.ReiterKey + "|" + k.Title)) continue;

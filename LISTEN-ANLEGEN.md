@@ -16,6 +16,20 @@ Listeneinträge.
 1. **Spaltenname exakt so übernehmen wie unten** – Groß-/Kleinschreibung inklusive. Der beim
    Anlegen eingegebene Name wird zum internen Feldnamen, und danach lässt er sich nicht mehr
    ändern (nur der Anzeigename). Also lieber zweimal hinsehen.
+
+   Trotzdem kann SharePoint einen anderen internen Namen vergeben: ist er schon belegt –
+   auch durch eine ausgeblendete Websitespalte – hängt SharePoint stillschweigend eine Ziffer
+   an. Aus `Typ` wird dann `Typ2`. **Das ist kein Problem:** die App löst solche Fälle
+   automatisch auf (Ziffernanhang, abweichender Anzeigename und Groß-/Kleinschreibung) und
+   die Diagnose weist sie aus:
+
+   ```
+   · Typ heißt intern „Typ2“ – wird automatisch berücksichtigt
+   ✓ alle 14 Spalten nutzbar (1 mit abweichendem internen Namen)
+   ```
+
+   Nur ein **wirklich anderer** Name (z. B. `Domaenen` statt `Domains`) lässt sich nicht
+   erraten – den meldet die Diagnose als fehlend, und dann hilft nur löschen und neu anlegen.
 2. **Keine Leerzeichen und keine Umlaute** in Spaltennamen. Darum heißt es `Kuerzel` und nicht
    „Kürzel", `GueltigVon` und nicht „Gültig von". Ein Leerzeichen würde intern zu `_x0020_`.
 3. **Mehrere Textzeilen immer als „Nur Text" (Klartext)**, nie als „Erweiterter Rich-Text".
@@ -107,9 +121,10 @@ dort haben die Mitarbeitenden Lesezugriff.
 ## Kontrolle
 
 1. In der App *Einstellungen → 🛠️ Einrichtung → 🩺 Diagnose → 🔍 Diagnose starten*.
-   Erwartet: je Liste `✓ vorhanden` und `✓ alle N Spalten vorhanden`.
-2. Weicht ein Name ab, nennt die Diagnose ihn – und wenn nur die Schreibweise abweicht, auch
-   den tatsächlichen internen Namen (`Domains → heißt intern „Domaenen"`). Dann die Spalte
-   löschen und mit dem richtigen Namen neu anlegen; ein Umbenennen ändert den internen Namen
-   nicht mehr.
-3. Danach *2 · Gesellschaften aus Tenant übernehmen* und *3 · Startinhalte anlegen*.
+   Erwartet: je Liste `✓ vorhanden` und `✓ alle N Spalten nutzbar`.
+2. Zeilen mit `·` sind Hinweise, keine Fehler – dort hat SharePoint einen abweichenden
+   internen Namen vergeben, den die App automatisch berücksichtigt.
+3. `⚠ fehlende Spalten: …` bedeutet, dass die App den Namen nicht zuordnen konnte. Dann die
+   Spalte löschen und mit dem richtigen Namen neu anlegen; Umbenennen ändert den internen
+   Namen nicht mehr.
+4. Danach *2 · Gesellschaften aus Tenant übernehmen* und *3 · Startinhalte anlegen*.
