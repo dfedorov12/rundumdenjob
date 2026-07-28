@@ -302,3 +302,59 @@ Browser mit realistischem Ausgangsstand (die 11 gewünschten + 4 Ballast-Domäne
   Standard-Zeile blendet die Warnung ein, **Abbrechen ändert nichts** (11 Einträge unverändert),
   „Alle auswählen“ → 11, Abwählen deaktiviert den Knopf wieder.
 Konsole fehlerfrei.
+
+## 2026-07-28 (6): Reiterleiste ohne Scrollbalken + Einrichtungs-Reiter entfernt
+
+**Denis:** „mir gefällt nicht dass die Reiter mit einem Balken hin und hergeschoben werden
+können, ich will dass die auf die Seite passgenau sind und schick aussehen im Stil von
+SharePoint Intranet“ – und im selben Zug: „einrichtung kann entfernt werden“.
+
+**Reiterleiste (`css/styles.css` + `js/app.js`):**
+- `overflow-x: auto` (der sichtbare Balken) → `overflow: hidden`. Was nicht in die Breite
+  passt, wandert hinter **„⋯ Mehr“** mit Ausklappmenü – dasselbe Muster wie in der echten
+  SharePoint-Websitenavigation (dort das `⋯` neben „So arbeiten wir“).
+- Optik an SharePoint angeglichen: heller Streifen (#fff) mit Unterkante statt azurblauem
+  Band, Navy-Text, aktiver Punkt fett mit orangefarbenem Unterstrich. Reiter etwas kompakter
+  (13,5 px, Innenabstand 11 px) – dadurch passen bei 1180 px sieben statt sechs Reiter direkt
+  in die Zeile.
+- `layoutTabs()` misst mit allen Reitern sichtbar, rechnet die Kappungsgrenze gegen die
+  Breite des „Mehr“-Knopfes und blendet den Rest aus; mindestens ein Reiter bleibt immer
+  stehen. Liegt der aktive Reiter im Menü, wird „Mehr“ hervorgehoben und der Eintrag im Menü
+  markiert. Menü schließt bei Klick daneben, Escape und nach Auswahl.
+- Neu berechnet wird bei `ResizeObserver` auf der Leiste, zusätzlich bei `window.resize`,
+  bei jedem Reiterwechsel und nach `document.fonts.ready` – Letzteres, weil Exo nachgeladen
+  wird und die Textbreiten dadurch nachträglich wachsen.
+- **Zwei Fehler dabei gefunden und behoben:** (1) Der `ResizeObserver` wurde ohne
+  festgehaltene Referenz erzeugt (`new ResizeObserver(fn).observe(el)`) – ein nicht
+  referenzierter Observer darf eingesammelt werden und feuert dann nicht mehr; jetzt in
+  `_tabObserver` gehalten. (2) Rückkopplungsschutz `_laying`, damit ein durch das Umschalten
+  ausgelöstes Resize keine Schleife erzeugt.
+
+**Einrichtungs-Reiter entfernt (`js/settings.js`):** Unterreiter „🛠️ Einrichtung“ → **„🩺
+Diagnose“**. Die drei Einrichtungsschritte (Listen anlegen / Gesellschaften übernehmen /
+Startinhalte anlegen) und ihr Protokoll sind weg; Diagnose, Schreibtest, „Konfiguration neu
+laden“ und die Erklärung zur Sichtbarkeitskette bleiben. Abschlusstext der Diagnose auf
+„Alles in Ordnung – Listen und Spalten sind vollständig nutzbar.“ umgestellt (verwies vorher
+auf die entfallenen Schritte 2 und 3). Unbekannte Unterreiter fallen jetzt auf
+Gesellschaften zurück statt einen Fehler zu werfen.
+`SEED.ensureLists/seedGesellschaften/seedContent` bleiben in `seed.js` – sie sind nur nicht
+mehr aus der Oberfläche erreichbar und der dokumentierte Weg für eine neue Umgebung
+(`setup-rundumdenjob.ps1`, LISTEN-ANLEGEN.md). `SEED.EXPECTED` wird weiterhin aktiv genutzt.
+
+**Verifikation:** `node --check` 7/7, `tests/test-graph-fieldmap.mjs` 13/13.
+Browser (Harness um Cache-Buster fürs Stylesheet ergänzt – die alte CSS kam aus dem Cache und
+hätte den Test verfälscht):
+- Bei 1180 px: 7 Reiter sichtbar, 2 im Menü, `scrollWidth == clientWidth` (kein Überlauf),
+  Navigationshintergrund #fff, Text Navy.
+- Breitenreihe 900 / 640 / 380 / voll: 4 / 3 / 1 / 7 Reiter sichtbar, **in keiner Stufe ein
+  Überlauf**, „Mehr“ jeweils vorhanden.
+- Menü: öffnet, listet genau die ausgeblendeten Reiter, Klick auf „Führungskräfte“ öffnet den
+  Reiter, schließt das Menü und hebt „Mehr“ hervor.
+- Einstellungen: fünf Unterreiter ohne „Einrichtung“, Diagnose-Reiter enthält nur noch die
+  drei erwarteten Knöpfe, Diagnoselauf meldet „Alles in Ordnung“.
+Konsole fehlerfrei.
+
+**Nicht verifizierbar in dieser Umgebung:** Die Browser-Pane kompositiert keine Frames,
+deshalb liefert der `ResizeObserver` dort keine Callbacks; die Neuberechnung wurde über den
+zusätzlich registrierten `window.resize`-Pfad geprüft. Screenshots waren aus demselben Grund
+nicht möglich.

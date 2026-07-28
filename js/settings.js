@@ -15,7 +15,7 @@ const SETTINGS = (() => {
     ["reiter",         "🗂️ Reiter"],
     ["kacheln",        "🔳 Kacheln"],
     ["rechte",         "🔑 Berechtigungen"],
-    ["einrichtung",    "🛠️ Einrichtung"]
+    ["diagnose",       "🩺 Diagnose"]
   ];
 
   const ROLLEN = ["viewer", "editor", "admin"];
@@ -43,7 +43,7 @@ const SETTINGS = (() => {
       nav.appendChild(b);
     }
     ({ gesellschaften: viewGes, reiter: viewReiter, kacheln: viewKacheln,
-       rechte: viewRechte, einrichtung: viewSetup }[sub])($("setBody"));
+       rechte: viewRechte, diagnose: viewDiagnose }[sub] || viewGes)($("setBody"));
   }
 
   const listMissing = name => DATA.cfg.missing.includes(name);
@@ -585,40 +585,29 @@ const SETTINGS = (() => {
     });
   }
 
-  /* ── 5 · Einrichtung ─────────────────────────────────────────────── */
+  /* ── 5 · Diagnose ─────────────────────────────────────────────────
+     Die früheren Einrichtungsschritte (Listen anlegen, Gesellschaften
+     übernehmen, Startinhalte) sind entfallen – die Einrichtung ist
+     abgeschlossen. Für eine neue Umgebung bleibt setup-rundumdenjob.ps1
+     bzw. LISTEN-ANLEGEN.md der Weg.                                    */
 
-  function viewSetup(host) {
+  function viewDiagnose(host) {
     const missing = DATA.cfg.missing;
     host.innerHTML = `
       <div class="card">
-        <h4>🛠️ Einrichtung</h4>
-        ${missing.length
-          ? `<div class="warn">Es fehlen noch Listen: <b>${missing.map(esc).join(", ")}</b>.</div>`
-          : `<div class="ok">Alle Konfigurationslisten sind vorhanden.</div>`}
-        <p class="hint">Die Konfiguration liegt in drei SharePoint-Listen auf
-          <b>${esc(C.configSite)}</b>. Der Knopf legt fehlende Listen samt Spalten an –
-          dafür braucht Ihr Konto das Recht, auf dieser Site Listen zu erstellen.
-          Bereits vorhandene Einträge werden nie überschrieben.</p>
-        <div class="row">
-          <button class="btn" id="sLists">1 · Listen anlegen</button>
-          <button class="btn sec" id="sGes">2 · Gesellschaften aus Tenant übernehmen</button>
-          <button class="btn sec" id="sCont">3 · Startinhalte anlegen</button>
-          <button class="btn sec" id="sReload">🔄 Neu laden</button>
-        </div>
-        <pre id="sLog" style="margin-top:16px;background:#f7fafd;border:1px solid var(--border);
-          border-radius:8px;padding:12px;font-size:12.5px;max-height:260px;overflow:auto"
-          hidden></pre>
-      </div>
-      <div class="card">
         <h4>🩺 Diagnose</h4>
-        <p class="hint">Scheitert das Anlegen mit <b>Access denied</b>, liegt es an einer von zwei
-          Ursachen: entweder fehlt dem Token die Berechtigung <b>Sites.ReadWrite.All</b>
-          (App-Registrierung / Admin-Zustimmung), oder das angemeldete Konto darf auf
-          <b>${esc(C.configSite)}</b> keine Listen anlegen (SharePoint-Websiteberechtigung).
-          Die Diagnose unterscheidet beides.</p>
+        ${missing.length
+          ? `<div class="warn">Es fehlen Listen: <b>${missing.map(esc).join(", ")}</b>.
+               Anlegen nach <b>LISTEN-ANLEGEN.md</b> im Repository.</div>`
+          : `<div class="ok">Alle Konfigurationslisten sind vorhanden.</div>`}
+        <p class="hint">Prüft Konto, Rolle, Token-Berechtigungen sowie jede Liste
+          <b>und jede Spalte</b> auf <b>${esc(C.configSite)}</b>. Abweichende interne
+          Spaltennamen (z. B. <code>Typ</code> → <code>Typ2</code>) werden dabei
+          ausgewiesen – die App berücksichtigt sie automatisch.</p>
         <div class="row">
           <button class="btn" id="dRun">🔍 Diagnose starten</button>
           <button class="btn sec" id="dWrite">🧪 Schreibtest auf der Site</button>
+          <button class="btn sec" id="sReload">🔄 Konfiguration neu laden</button>
         </div>
         <p class="hint" style="margin:12px 0 0">Der Schreibtest legt eine Hilfsliste
           <code>RUDJ_Schreibtest</code> an und löscht sie sofort wieder – er verändert nichts
@@ -643,26 +632,10 @@ const SETTINGS = (() => {
         </ol>
       </div>`;
 
-    const log = m => { const p = $("sLog"); p.hidden = false; p.textContent += m + "\n"; p.scrollTop = p.scrollHeight; };
-    const run = async (btn, fn, done) => {
-      btn.disabled = true;
-      try { await fn(); log("✓ " + done); DATA.clearCache(); await DATA.loadConfig(true); }
-      catch (e) {
-        log("✗ " + (e.detail || e.message));
-        if (e.status === 403) log("  → Ursache eingrenzen: Karte „🩺 Diagnose“ unten.");
-        APP.toast(e.message, true);
-      }
-      finally { btn.disabled = false; }
-    };
-
-    $("sLists").onclick = e => run(e.target, () => SEED.ensureLists(log), "Listen geprüft/angelegt.");
-    $("sGes").onclick   = e => run(e.target, () => SEED.seedGesellschaften(log), "Gesellschaften übernommen.");
-    $("sCont").onclick  = e => run(e.target, () => SEED.seedContent(log), "Startinhalte angelegt.");
-    $("sReload").onclick = () => APP.reload();
-
     const dlog = m => { const p = $("dLog"); p.hidden = false; p.textContent += m + "\n"; p.scrollTop = p.scrollHeight; };
-    $("dRun").onclick   = e => diagnose(e.target, dlog);
-    $("dWrite").onclick = e => writeTest(e.target, dlog);
+    $("dRun").onclick    = e => diagnose(e.target, dlog);
+    $("dWrite").onclick  = e => writeTest(e.target, dlog);
+    $("sReload").onclick = () => APP.reload();
   }
 
   /** Nur-Lese-Diagnose: Konto, Token-Berechtigungen, Site- und Listenzugriff. */
@@ -749,13 +722,11 @@ const SETTINGS = (() => {
 
       log("");
       if (alleDa) {
-        log("Alles vollständig. Weiter mit „2 · Gesellschaften aus Tenant übernehmen“");
-        log("und „3 · Startinhalte anlegen“ – beide brauchen nur Schreibrechte auf");
-        log("Listeneinträge, keinen Vollzugriff auf die Website.");
+        log("Alles in Ordnung – Listen und Spalten sind vollständig nutzbar.");
       } else {
-        log("Zum Anlegen per Hand: LISTEN-ANLEGEN.md im Repository nennt alle Spalten");
+        log("Fehlendes anlegen: LISTEN-ANLEGEN.md im Repository nennt alle Spalten");
         log("mit exaktem Namen und Typ. Danach diese Diagnose erneut ausführen.");
-        log("Alternativ zeigt „🧪 Schreibtest auf der Site“, ob die App die Listen");
+        log("Alternativ zeigt „🧪 Schreibtest auf der Site“, ob die App Listen");
         log("selbst anlegen darf.");
       }
     } catch (e) {

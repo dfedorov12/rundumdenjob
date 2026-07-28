@@ -132,26 +132,46 @@ header { background: var(--navy); color: #fff; }
 }
 .ges-badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
 
-/* ── Reiter-Navigation ────────────────────────────────────────────── */
+/* ── Reiter-Navigation ──────────────────────────────────────────────
+   Wie die SharePoint-Websitenavigation: heller Streifen unter dem
+   Kopfbereich, aktiver Punkt mit Unterstrich. Kein Scrollbalken – was
+   nicht in die Breite passt, wandert hinter „⋯ Mehr“ (siehe layoutTabs
+   in js/app.js).                                                      */
 
-nav.tabs { background: var(--azur); }
+nav.tabs { background: #fff; border-bottom: 1px solid var(--border); }
 nav.tabs .inner {
   max-width: var(--maxw); margin: 0 auto; padding: 0 22px;
-  display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin;
+  display: flex; align-items: stretch; gap: 2px;
+  overflow: hidden;            /* nie scrollen – Überzähliges wird ausgeblendet */
 }
 nav.tabs button {
   appearance: none; background: transparent; border: 0; cursor: pointer;
-  color: rgba(255,255,255,.82); font-family: inherit; font-size: 14px;
-  padding: 12px 16px 10px; white-space: nowrap;
-  border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 8px;
-  transition: color .12s, background .12s;
+  color: var(--navy); font-family: inherit; font-size: 13.5px;
+  padding: 13px 11px 10px; white-space: nowrap;
+  border-bottom: 3px solid transparent; display: flex; align-items: center; gap: 7px;
+  transition: background .12s, border-color .12s;
 }
-nav.tabs button:hover { color: #fff; background: rgba(255,255,255,.09); }
-nav.tabs button.active {
-  color: #fff; font-weight: 600; border-bottom-color: var(--orange);
-  background: rgba(255,255,255,.09);
-}
+nav.tabs button:hover { background: #eef3f9; }
+nav.tabs button.active { font-weight: 700; border-bottom-color: var(--orange); }
 nav.tabs button .ico { font-size: 16px; line-height: 1; }
+nav.tabs button[hidden] { display: none !important; }
+
+/* „⋯ Mehr“ mit Ausklappmenü */
+.tab-more { position: relative; display: flex; margin-left: auto; }
+.tab-more > button { color: var(--muted); }
+.tab-more > button.active { color: var(--navy); }
+.tab-menu {
+  position: absolute; top: 100%; right: 0; z-index: 300;
+  background: #fff; border: 1px solid var(--border); border-top: 0;
+  border-radius: 0 0 10px 10px; box-shadow: var(--shadow-h);
+  min-width: 250px; padding: 6px; display: flex; flex-direction: column;
+}
+.tab-menu button {
+  width: 100%; justify-content: flex-start; border-bottom: 0;
+  border-radius: 7px; padding: 9px 12px; font-size: 14px;
+}
+.tab-menu button:hover { background: #eef3f9; }
+.tab-menu button.active { font-weight: 700; background: #eaf1fa; }
 
 /* ── Inhalt ───────────────────────────────────────────────────────── */
 

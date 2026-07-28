@@ -103,6 +103,26 @@ const APP = (() => {
     renderTabs();
     openFromHash();
     loadAvatar();
+
+    // Reiterleiste neu aufteilen, wenn sich die Breite ändert. Der
+    // ResizeObserver deckt auch Zoom und erscheinende Scrollbalken ab;
+    // fonts.ready ist nötig, weil Exo erst nachgeladen wird und die
+    // Textbreiten dadurch nachträglich wachsen.
+    let t = null;
+    const relayout = () => { clearTimeout(t); t = setTimeout(layoutTabs, 80); };
+    if (window.ResizeObserver) {
+      // Referenz festhalten – ein nicht referenzierter Observer darf
+      // eingesammelt werden und feuert dann nicht mehr.
+      _tabObserver = new ResizeObserver(relayout);
+      _tabObserver.observe($("tabBar"));
+    }
+    addEventListener("resize", relayout);   // zusätzlich, schadet nicht
+    document.fonts?.ready.then(layoutTabs).catch(() => {});
+
+    document.addEventListener("click", () => { const m = $("tabMenu"); if (m) m.hidden = true; });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") { const m = $("tabMenu"); if (m) m.hidden = true; }
+    });
   }
 
   function showNoAccess() {
@@ -190,12 +210,90 @@ const APP = (() => {
     const bar = $("tabBar");
     bar.innerHTML = "";
     for (const t of tabs()) {
-      const b = document.createElement("button");
-      b.innerHTML = `<span class="ico">${esc(t.icon)}</span>${esc(t.title)}`;
-      b.dataset.key = t.key;
-      b.onclick = () => open(t.key);
-      bar.appendChild(b);
+      bar.appendChild(tabButton(t, "tab"));
     }
+    // „⋯ Mehr“ nimmt auf, was nicht in die Breite passt
+    const wrap = document.createElement("div");
+    wrap.className = "tab-more";
+    wrap.hidden = true;
+    wrap.innerHTML = `<button id="tabMore" title="Weitere Bereiche">
+        <span class="ico">⋯</span>Mehr</button>
+      <div class="tab-menu" id="tabMenu" hidden></div>`;
+    bar.appendChild(wrap);
+    wrap.querySelector("#tabMore").onclick = e => {
+      e.stopPropagation();
+      const m = $("tabMenu");
+      m.hidden = !m.hidden;
+    };
+    layoutTabs();
+  }
+
+  function tabButton(t, cls) {
+    const b = document.createElement("button");
+    b.className = cls;
+    b.innerHTML = `<span class="ico">${esc(t.icon)}</span>${esc(t.title)}`;
+    b.dataset.key = t.key;
+    b.onclick = () => { $("tabMenu").hidden = true; open(t.key); };
+    return b;
+  }
+
+  /** Blendet aus, was nicht in die Zeile passt, und hängt es ins Menü.
+   *  Ersetzt den früheren waagerechten Scrollbalken. */
+  let _laying = false;
+  let _tabObserver = null;
+  function layoutTabs() {
+    const bar = $("tabBar");
+    const wrap = bar?.querySelector(".tab-more");
+    if (!bar || !wrap || _laying) return;   // Schutz gegen Rückkopplung des ResizeObservers
+    _laying = true;
+    try { layoutTabsInner(bar, wrap); } finally { _laying = false; }
+  }
+
+  function layoutTabsInner(bar, wrap) {
+    const menu = $("tabMenu");
+    const btns = [...bar.querySelectorAll("button.tab")];
+
+    // Erst alles zeigen, um die echten Breiten zu messen
+    btns.forEach(b => b.hidden = false);
+    wrap.hidden = false;
+    const cs = getComputedStyle(bar);
+    const avail = bar.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const GAP = 2;
+    const widths = btns.map(b => b.offsetWidth + GAP);
+    const total = widths.reduce((a, b) => a + b, 0);
+
+    if (total <= avail) {                 // alles passt – kein Menü nötig
+      wrap.hidden = true;
+      menu.hidden = true;
+      menu.innerHTML = "";
+      return;
+    }
+
+    const moreW = wrap.offsetWidth + GAP;
+    let used = 0, cut = btns.length;
+    for (let i = 0; i < btns.length; i++) {
+      if (used + widths[i] > avail - moreW) { cut = i; break; }
+      used += widths[i];
+    }
+    if (cut === 0) cut = 1;               // mindestens ein Reiter bleibt sichtbar
+
+    const versteckt = [];
+    btns.forEach((b, i) => {
+      b.hidden = i >= cut;
+      if (i >= cut) versteckt.push(b.dataset.key);
+    });
+
+    const alle = tabs();
+    menu.innerHTML = "";
+    for (const key of versteckt) {
+      const t = alle.find(x => x.key === key);
+      if (!t) continue;
+      const b = tabButton(t, "");
+      b.classList.toggle("active", key === current);
+      menu.appendChild(b);
+    }
+    // Liegt der aktive Reiter im Menü, wird „Mehr“ hervorgehoben
+    wrap.querySelector("#tabMore").classList.toggle("active", versteckt.includes(current));
   }
 
   function openFromHash() {
@@ -215,6 +313,7 @@ const APP = (() => {
     history.replaceState({}, "", "#" + encodeURIComponent(key));
     document.querySelectorAll("#tabBar button")
       .forEach(b => b.classList.toggle("active", b.dataset.key === key));
+    layoutTabs();
 
     if (key === "__settings") return SETTINGS.render($("main"));
     renderReiter(all.find(t => t.key === key));
