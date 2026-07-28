@@ -441,6 +441,21 @@ const SETTINGS = (() => {
           <a class="btn sec" href="${esc(C.adminUrl)}" target="_blank" rel="noopener">Admin-Portal ↗</a>
         </div>
         <div id="pBox"><p class="hint">Wird geladen …</p></div>
+      </div>
+      <div class="card">
+        <h4>👑 Haupt-Administration</h4>
+        <p class="hint">Diese Konten sind in <code>js/config.js</code> festgeschrieben und haben
+          immer die Rolle <b>admin</b> – unabhängig von der Rechteliste. So bleibt die App
+          administrierbar, falls in <b>${esc(C.permList)}</b> einmal kein Eintrag existiert.
+          Änderungen daran gehen nur über einen Commit im Repository.</p>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>E-Mail</th><th>Rolle</th><th>Quelle</th></tr></thead>
+          <tbody>${(C.hauptAdmins || []).map(m => `
+            <tr><td><b>${esc(m)}</b></td>
+              <td><span class="pill orange">admin</span></td>
+              <td><span class="pill gray">config.js</span></td></tr>`).join("") ||
+            `<tr><td colspan="3" style="color:var(--muted)">Kein Haupt-Administrator gesetzt.</td></tr>`}
+          </tbody></table></div>
       </div>`;
     $("pNew").onclick = () => editPerm();
 

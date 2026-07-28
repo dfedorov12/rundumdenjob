@@ -41,6 +41,12 @@ zentralen Liste **`AppPermissions`** auf `/sites/ticket` – derselben Liste, di
 
 Ein Eintrag mit `App = *` gilt app-übergreifend, `App = rundumdenjob` nur hier.
 
+**Haupt-Administrator: `administrator@dihag.com`** – in `js/config.js` unter `hauptAdmins`
+festgeschrieben und damit immer `admin`, unabhängig von der Rechteliste. Das hält die App
+administrierbar, falls in `AppPermissions` einmal kein passender Eintrag existiert. Änderungen
+daran gehen nur über einen Commit; sichtbar ist die Liste in
+*Einstellungen → 🔑 Berechtigungen → Haupt-Administration*.
+
 ### Dynamische Reiter und Kacheln
 Es gibt zwei Ebenen, beide vollständig über die Einstellungen pflegbar:
 
@@ -101,7 +107,11 @@ Connect-MgGraph -Scopes "Application.ReadWrite.All","Sites.Manage.All","Sites.Re
 Alternativ komplett in der App: **Einstellungen → 🛠️ Einrichtung → Schritte 1–3**
 (dafür braucht das Konto das Recht, auf `/sites/IT` Listen anzulegen).
 
-**3 · Startinhalte.** *Einstellungen → Einrichtung → „3 · Startinhalte anlegen“* legt acht Reiter
+Schritt 4 des Skripts legt zusätzlich den Haupt-Administrator in `AppPermissions` an, damit er
+auch im Admin-Portal auftaucht.
+
+**3 · Startinhalte.** Als `administrator@dihag.com` anmelden, dann
+*Einstellungen → Einrichtung → „3 · Startinhalte anlegen“* – das legt acht Reiter
 und sechzehn Beispielkacheln an. Bereits vorhandene Einträge werden nie überschrieben, der
 Schritt lässt sich gefahrlos wiederholen.
 

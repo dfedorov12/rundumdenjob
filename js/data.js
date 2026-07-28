@@ -62,10 +62,14 @@ const DATA = (() => {
     return ctx;
   }
 
+  /** Haupt-Administrator laut Konfiguration – immer Rolle „admin“. */
+  const isHauptAdmin = mail =>
+    (C.hauptAdmins || []).map(s => String(s).toLowerCase()).includes(String(mail || "").toLowerCase());
+
   /** Rolle aus der zentralen Liste AppPermissions (wie im Orgchart).
    *  Ohne Treffer gilt die Standardrolle – alle Tenant-Nutzer dürfen lesen. */
   async function loadRole() {
-    if (C.bootstrapAdmins.map(s => s.toLowerCase()).includes(ctx.email)) return "admin";
+    if (isHauptAdmin(ctx.email)) return "admin";
     try {
       const rows = await GRAPH.listItems(C.permSite, C.permList);
       if (!rows) return C.defaultRole;
@@ -168,6 +172,6 @@ const DATA = (() => {
     ctx, cfg, RANK,
     loadUser, loadConfig, clearCache, resolveGesellschaft,
     isVisible, visibleReiter, kachelnFor, discoverDomains,
-    isAdmin, canWrite, parseList, domainOf, num
+    isAdmin, canWrite, isHauptAdmin, parseList, domainOf, num
   };
 })();

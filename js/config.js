@@ -43,9 +43,10 @@ const RUDJ_CONFIG = {
   // nur höhere Rollen (editor/admin) vergeben.
   defaultRole: "viewer",
 
-  // Notnagel, damit die Seite auch dann administrierbar ist, wenn in
-  // AppPermissions noch kein Eintrag für „rundumdenjob“ existiert.
-  bootstrapAdmins: ["fedorov@dihag.com"],
+  // Haupt-Administrator: hat immer die Rolle „admin“, unabhängig von
+  // AppPermissions. Damit bleibt die Seite administrierbar, auch wenn in der
+  // Rechteliste noch kein Eintrag für „rundumdenjob“ existiert.
+  hauptAdmins: ["administrator@dihag.com"],
 
   /* ── Anbindung an das SharePoint-Intranet ─────────────────────────── */
   intranet: {

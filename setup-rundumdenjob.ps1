@@ -14,6 +14,8 @@ param(
     [string] $ClientId    = "c7710322-13ab-44c5-8ba1-314ca5cdb38d",  # = js/config.js
     [string] $RedirectUri = "https://dfedorov12.github.io/rundumdenjob/",
     [string] $SitePath    = "dihag.sharepoint.com:/sites/IT",
+    [string] $PermPath    = "dihag.sharepoint.com:/sites/ticket",
+    [string] $HauptAdmin  = "administrator@dihag.com",              # = js/config.js hauptAdmins
     [switch] $SkipAppReg,
     [switch] $SeedDomains
 )
@@ -160,5 +162,34 @@ if ($SeedDomains) {
     }
 }
 
+# ── 4 · Haupt-Administrator in AppPermissions eintragen ───────────────
+# Der Haupt-Admin ist bereits ueber js/config.js gesetzt; der Listeneintrag
+# macht ihn zusaetzlich im Admin-Portal und in der Rechteliste sichtbar.
+if ($HauptAdmin) {
+    Write-Host "`n[4] Haupt-Administrator $HauptAdmin" -ForegroundColor Yellow
+    try {
+        $psite = Invoke-MgGraphRequest -Method GET -Uri "$g/sites/$PermPath"
+        $items = (Invoke-MgGraphRequest -Method GET `
+            -Uri "$g/sites/$($psite.id)/lists/AppPermissions/items?`$expand=fields&`$top=999").value
+        $hit = $items | Where-Object {
+            $_.fields.UserEmail -eq $HauptAdmin -and
+            ($_.fields.App -eq "rundumdenjob" -or $_.fields.App -eq "*")
+        }
+        if ($hit) {
+            Write-Host "  Eintrag vorhanden (App '$($hit[0].fields.App)', Rolle '$($hit[0].fields.Role)')." -ForegroundColor Green
+        } else {
+            $fields = @{ Title = $HauptAdmin; UserEmail = $HauptAdmin; App = "rundumdenjob"; Role = "admin" }
+            Invoke-MgGraphRequest -Method POST `
+                -Uri "$g/sites/$($psite.id)/lists/AppPermissions/items" `
+                -Body (@{ fields = $fields } | ConvertTo-Json -Depth 4) -ContentType "application/json" | Out-Null
+            Write-Host "  Eintrag 'rundumdenjob / admin' angelegt." -ForegroundColor Green
+        }
+    } catch {
+        Write-Warning "  AppPermissions nicht erreichbar: $($_.Exception.Message)"
+        Write-Warning "  Nicht kritisch – der Haupt-Admin greift ohnehin ueber js/config.js."
+    }
+}
+
 Write-Host "`nFertig. Reiter und Kacheln legen Sie danach in der App unter" -ForegroundColor Cyan
 Write-Host "Einstellungen -> Einrichtung -> '3 · Startinhalte anlegen' an." -ForegroundColor Cyan
+Write-Host "Anmelden dafuer als $HauptAdmin." -ForegroundColor Cyan

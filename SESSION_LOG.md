@@ -22,7 +22,7 @@ Ein Reiter ohne Treffer verschwindet komplett aus der Navigation. Kacheltypen: `
 - `js/config.js` – ClientId (ZAPP-Registrierung, hat bereits Sites.ReadWrite.All), TenantId,
   `configSite = /sites/IT`, Listen `RUDJ_Gesellschaften|Reiter|Kacheln`,
   `permSite = /sites/ticket` + `AppPermissions`, `appKey = rundumdenjob`,
-  `defaultRole = viewer`, `bootstrapAdmins = [fedorov@dihag.com]`, Intranet-Root
+  `defaultRole = viewer`, `hauptAdmins = [administrator@dihag.com]`, Intranet-Root
   `dihag.sharepoint.com`, Orgchart-URL.
 - `js/auth.js` – PKCE wie im Orgchart, ergänzt um **automatische Anmeldung**: erst
   `prompt=none`-Redirect, bei `login_required` automatisch `prompt=select_account`,
@@ -69,3 +69,29 @@ Ein Reiter ohne Treffer verschwindet komplett aus der Navigation. Kacheltypen: `
 2. GitHub Pages im neuen Repo aktivieren.
 3. Domänen/Gesellschaften nach dem ersten Login prüfen und benennen (Skript vergibt
    nur einen aus der Domäne abgeleiteten Namen).
+
+## 2026-07-27 (2): Haupt-Admin = administrator@dihag.com
+
+**Denis:** „der hauptadmin soll administrator@dihag.com sein!"
+
+- `js/config.js`: `bootstrapAdmins: ["fedorov@dihag.com"]` → `hauptAdmins: ["administrator@dihag.com"]`
+  (umbenannt, weil es kein Notnagel mehr ist, sondern die feste Haupt-Administration).
+- `js/data.js`: neue Hilfsfunktion `isHauptAdmin(mail)` (case-insensitiv, tolerant gegen
+  fehlendes Feld), von `loadRole()` genutzt und nach außen exportiert.
+- `js/settings.js`: Reiter „🔑 Berechtigungen" zeigt zusätzlich die Karte
+  **👑 Haupt-Administration** – Tabelle der `hauptAdmins` mit Rolle `admin` und Quelle
+  `config.js` plus Hinweis, dass Änderungen nur über einen Commit gehen.
+- `setup-rundumdenjob.ps1`: neue Parameter `-PermPath` / `-HauptAdmin`
+  (Default `administrator@dihag.com`) und Schritt **[4]**, der den Haupt-Admin idempotent in
+  `AppPermissions` (App `rundumdenjob`, Rolle `admin`) einträgt, damit er auch im Admin-Portal
+  auftaucht; scheitert der Zugriff, nur Warnung (config.js greift ohnehin).
+- `README.md`: Abschnitt Rollen um die Haupt-Administration ergänzt; Einrichtung nennt jetzt
+  ausdrücklich die Anmeldung als `administrator@dihag.com` für Schritt 3.
+- `_test.html`: Testkonto auf `administrator@dihag.com` umgestellt.
+
+**Verifikation:** `node --check` 7/7. Browser (Stubs): 8 Prüfungen grün – Haupt-Admin greift,
+`isHauptAdmin` ignoriert Groß-/Kleinschreibung und lehnt fremde Konten ab, Karte
+„Haupt-Administration" wird mit Quelle `config.js` gerendert. Weitere 4 Prüfungen mit einem
+zweiten Konto (`fedorov@dihag.com`, kein Listeneintrag): bekommt `viewer`, sieht weder
+Einstellungen noch Führungskräfte-Reiter, und wird über einen `AppPermissions`-Eintrag korrekt
+auf `editor` gehoben. Konsole fehlerfrei.
