@@ -136,3 +136,43 @@ Site-/Listen-Pfade im GRAPH-Stub). Geprüft im Browser:
 - Einrichtungs-Protokoll zeigt bei 403 jetzt `POST /sites/…/lists → HTTP 403 accessDenied:
   Access denied` plus Verweis auf die Diagnose-Karte.
 Konsole fehlerfrei.
+
+## 2026-07-28 (2): Ursache geklärt – Websiteberechtigung; App-only-Weg ergänzt
+
+**Diagnose-Protokoll von Denis (Konto administrator@dihag.com):** Token vollständig
+(`Mail.Send, Sites.ReadWrite.All, User.Read, User.Read.All, User.ReadBasic.All, profile,
+openid, email` → „✓ Alle benötigten Berechtigungen“), Site `/sites/IT` lesbar, 33 Listen
+lesbar, die drei RUDJ-Listen fehlen noch. Schreibtest:
+`POST /sites/dihag.sharepoint.com,1618712f-…,b93e94cf-… /lists → HTTP 403 accessDenied`.
+→ **Ursache 2 bestätigt:** Das Konto hat auf `/sites/IT` Mitglieds-/Bearbeitungsrechte
+(deshalb funktioniert ZAPP, das nur Listeneinträge schreibt), aber keinen Vollzugriff und
+darf daher keine Listen erstellen.
+
+**Korrektur eines Fehlers in der eigenen Empfehlung:** Der Hinweis „Listen per PowerShell
+anlegen – das umgeht die App komplett“ war irreführend. `Connect-MgGraph` mit delegierten
+Scopes läuft als dasselbe angemeldete Benutzerkonto und läuft in genau denselben 403; es
+umgeht nur den Browser, nicht die SharePoint-Berechtigung. Korrigiert in App-Protokoll und
+README.
+
+- `setup-rundumdenjob.ps1` grundlegend erweitert: neue **Betriebsart App-only**
+  (`-AppOnly -AppClientId -AppSecret [-AppTenantId]`). Alle Graph-Aufrufe laufen jetzt über
+  die Hülle `Gx` (Methode/Uri/Body), die entweder `Invoke-MgGraphRequest` (delegiert) oder
+  `Invoke-RestMethod` mit Client-Credentials-Token (`Get-AppToken`, mit Ablauf-Cache) nutzt.
+  App-only ist unabhängig von Benutzer- und Websiteberechtigungen, braucht dafür
+  `Sites.FullControl.All` als **Application**-Berechtigung mit Administratorzustimmung.
+  `Ensure-List` erklärt bei 403 im Klartext, was fehlt und welcher Weg hilft; Schritt 1
+  (Redirect-URI) bricht nicht mehr hart ab, sondern warnt und verweist auf `-SkipAppReg`.
+  Secret wird als `SecureString` übernommen und nur im Speicher entpackt.
+- `js/settings.js`: Der 403-Block im Schreibtest nennt jetzt drei Wege statt zwei, sagt
+  ausdrücklich, dass nur dieser eine Einrichtungsschritt betroffen ist (der Betrieb braucht
+  nur Item-Rechte), und warnt beim PowerShell-Weg vor genau der Fehlannahme von vorher.
+- `README.md`: eigener Abschnitt „403 beim Anlegen der Listen (Websiteberechtigung)“ mit den
+  drei Wegen; Verweis auf die bestehende Registrierung „DIHAG Cron-Job“
+  (`089bf9ad-2d9a-4cbc-b85d-88b4484af0bb`) als App-only-Kandidat.
+
+**Verifikation:** `node --check` 7/7. PowerShell-Parser über `setup-rundumdenjob.ps1` ohne
+Fehler. `-AppOnly` ohne Client-Id/Secret bricht wie vorgesehen mit
+„-AppOnly braucht -AppClientId und -AppSecret." ab (kein Netzzugriff davor). Browser: der
+403-Zweig des Schreibtests gibt den korrigierten Text mit allen drei Wegen aus, Konsole
+fehlerfrei. Der App-only-Graph-Pfad selbst ist unverifiziert – dafür wäre ein Client Secret
+nötig, das hier nicht vorliegt.

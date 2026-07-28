@@ -687,11 +687,20 @@ const SETTINGS = (() => {
           log("Das Token ist in Ordnung, aber " + DATA.ctx.email);
           log("darf auf " + C.configSite);
           log("keine Listen anlegen (SharePoint-Websiteberechtigung).");
-          log("\nZwei Wege:");
-          log("a) Konto auf der Site zum Websitebesitzer machen (Websiteberechtigungen).");
-          log("b) Listen einmalig per PowerShell anlegen – das umgeht die App komplett:");
-          log("   Connect-MgGraph -Scopes \"Sites.Manage.All\",\"Sites.ReadWrite.All\"");
-          log("   ./setup-rundumdenjob.ps1 -SkipAppReg");
+          log("\nDas betrifft nur diesen einen Einrichtungsschritt. Sobald die Listen");
+          log("existieren, genügen die vorhandenen Rechte für den Betrieb der App.");
+          log("\nDrei Wege – einer reicht:");
+          log("a) Konto auf der Site zum Websitebesitzer machen (Websiteberechtigungen)");
+          log("   und danach hier „1 · Listen anlegen“ erneut ausführen.");
+          log("b) setup-rundumdenjob.ps1 mit einem SharePoint- oder Global-Admin-Konto:");
+          log("     Connect-MgGraph -Scopes \"Sites.Manage.All\",\"Sites.ReadWrite.All\"");
+          log("     ./setup-rundumdenjob.ps1 -SkipAppReg");
+          log("   Achtung: delegiertes PowerShell läuft als das angemeldete Konto und");
+          log("   scheitert mit demselben 403, wenn dieses Konto keinen Vollzugriff hat.");
+          log("c) App-only – unabhängig von Benutzer- und Websiteberechtigungen:");
+          log("     ./setup-rundumdenjob.ps1 -AppOnly -SkipAppReg \\");
+          log("       -AppClientId <App-Reg mit Sites.FullControl.All (Application)> \\");
+          log("       -AppSecret (Read-Host -AsSecureString \"Client Secret\")");
         }
         return;
       }

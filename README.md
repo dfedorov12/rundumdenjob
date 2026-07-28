@@ -131,17 +131,43 @@ Die Meldung kommt von SharePoint und hat genau zwei mögliche Ursachen. *Einstel
    enthält das neue Token den Scope.
 2. **Das Konto darf auf der Site keine Listen anlegen.** Der Knopf *🧪 Schreibtest auf der
    Site* legt eine Hilfsliste `RUDJ_Schreibtest` an und löscht sie sofort wieder. Scheitert
-   er mit 403, ist es eine SharePoint-Websiteberechtigung: Konto auf `/sites/IT` zum
-   Websitebesitzer machen – oder die Listen einmalig per PowerShell anlegen:
+   er mit 403, ist es eine SharePoint-Websiteberechtigung — siehe unten.
+
+Fehlermeldungen im Einrichtungs-Protokoll nennen immer Methode, Pfad, HTTP-Status und
+Graph-Fehlercode – also z. B. `POST /sites/…/lists → HTTP 403 accessDenied: Access denied`
+statt nur `Access denied`.
+
+### 403 beim Anlegen der Listen (Websiteberechtigung)
+
+Das betrifft **nur diesen einen Einrichtungsschritt**. Für den Betrieb braucht die App
+lediglich Lese-/Schreibrechte auf *Listeneinträge* — die hat ein normales Mitgliedskonto
+bereits. Nur das Erstellen einer Liste verlangt Vollzugriff auf der Website. Drei Wege,
+einer genügt:
+
+**a) Konto zum Websitebesitzer machen.** Auf `/sites/IT` unter *Websiteberechtigungen* das
+Konto in die Besitzergruppe aufnehmen, dann in der App *1 · Listen anlegen* wiederholen.
+
+**b) Skript mit einem SharePoint- oder Global-Admin-Konto.**
 
 ```powershell
 Connect-MgGraph -Scopes "Sites.Manage.All","Sites.ReadWrite.All"
 ./setup-rundumdenjob.ps1 -SkipAppReg
 ```
 
-Fehlermeldungen im Einrichtungs-Protokoll nennen jetzt immer Methode, Pfad, HTTP-Status und
-Graph-Fehlercode – also z. B. `POST /sites/…/lists → HTTP 403 accessDenied: Access denied`
-statt nur `Access denied`.
+Delegiertes PowerShell läuft als das angemeldete Konto und scheitert mit demselben 403,
+wenn dieses Konto keinen Vollzugriff hat — der Weg hilft also nur mit einem entsprechend
+berechtigten Konto.
+
+**c) App-only** — umgeht Benutzer- und Websiteberechtigungen vollständig, weil die App-Identität
+mit `Sites.FullControl.All` (Application, mit Administratorzustimmung) arbeitet:
+
+```powershell
+./setup-rundumdenjob.ps1 -AppOnly -SkipAppReg -AppClientId "<App-Reg-Id>" -AppSecret (Read-Host -AsSecureString "Client Secret")
+```
+
+Im Tenant existiert dafür bereits die Registrierung **DIHAG Cron-Job**
+(`089bf9ad-2d9a-4cbc-b85d-88b4484af0bb`); sie braucht ggf. noch `Sites.FullControl.All` als
+Application-Berechtigung. Das Secret niemals ins Repository — nur interaktiv eingeben.
 
 ### „AADSTS50011" direkt beim Aufruf
 
