@@ -389,6 +389,11 @@ const APP = (() => {
             <dt>Zugeordnet über</dt><dd>@${esc(ctx.domain || "–")}</dd>
             <dt>Berechtigung</dt><dd><span class="pill ${ctx.role === "admin" ? "orange" : ctx.role === "editor" ? "navy" : ""}">${esc(ctx.role)}</span></dd>
           </dl>
+          <p class="${DATA.roleInfo.fehler ? "err" : "hint"}" style="margin:14px 0 0">
+            ${esc(DATA.roleErklaerung())}</p>
+          <div class="row" style="margin-top:10px">
+            <button class="btn sec sm" id="btnRolle">🔄 Berechtigung neu prüfen</button>
+          </div>
         </div>
         <div class="card">
           <h4>🗂️ Mein Umfeld</h4>
@@ -402,6 +407,18 @@ const APP = (() => {
         <h4>📰 Neues aus der DIHAG</h4>
         <div class="news" id="newsBox"></div>
       </div>`;
+
+    const b = $("btnRolle");
+    if (b) b.onclick = async () => {
+      b.disabled = true;
+      try {
+        const r = await DATA.reloadRole();
+        refreshTabs();
+        renderReiter(tabs().find(t => t.key === "start") || { key: "start", title: "Start", icon: "🏠" });
+        toast(r.geaendert ? `Berechtigung jetzt: ${r.neu}` : `Unverändert: ${r.neu}`);
+      } catch (e) { toast(e.message, true); }
+      finally { b.disabled = false; }
+    };
 
     loadOrgBox();
     loadIntranetNews();

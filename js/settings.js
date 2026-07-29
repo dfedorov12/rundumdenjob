@@ -689,6 +689,7 @@ const SETTINGS = (() => {
       log("── Konto ──────────────────────────────");
       log("Angemeldet:      " + DATA.ctx.email);
       log("Ermittelte Rolle: " + DATA.ctx.role);
+      log("Begründung:       " + DATA.roleErklaerung());
 
       log("\n── Token ──────────────────────────────");
       const ti = AUTH.tokenInfo();

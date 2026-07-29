@@ -66,24 +66,66 @@ const DATA = (() => {
   const isHauptAdmin = mail =>
     (C.hauptAdmins || []).map(s => String(s).toLowerCase()).includes(String(mail || "").toLowerCase());
 
+  /** Protokoll der letzten Rollenermittlung – damit „warum viewer?“ beantwortbar
+   *  ist, ohne im Code zu suchen. Wird in der Profilkarte und der Diagnose
+   *  angezeigt. */
+  const roleInfo = {
+    quelle: "standard",   // hauptadmin | liste | standard
+    fehler: null,         // Text, wenn die Rechteliste nicht gelesen werden konnte
+    zeilen: 0,            // gelesene Einträge insgesamt
+    treffer: 0,           // Einträge auf die eigene E-Mail
+    passend: 0            // davon mit passender App
+  };
+
   /** Rolle aus der zentralen Liste AppPermissions (wie im Orgchart).
    *  Ohne Treffer gilt die Standardrolle – alle Tenant-Nutzer dürfen lesen. */
   async function loadRole() {
-    if (isHauptAdmin(ctx.email)) return "admin";
+    roleInfo.quelle = "standard";
+    roleInfo.fehler = null;
+    roleInfo.zeilen = roleInfo.treffer = roleInfo.passend = 0;
+
+    if (isHauptAdmin(ctx.email)) { roleInfo.quelle = "hauptadmin"; return "admin"; }
     try {
       const rows = await GRAPH.listItems(C.permSite, C.permList, ["Title", "UserEmail", "App", "Role"]);
-      if (!rows) return C.defaultRole;
+      if (!rows) {
+        // listItems liefert null, wenn die Liste nicht gefunden wird – für
+        // Konten ohne Zugriff auf die Site sieht das genauso aus.
+        roleInfo.fehler = `Liste „${C.permList}“ auf ${C.permSite} nicht gefunden `
+          + "oder für dieses Konto nicht lesbar.";
+        return C.defaultRole;
+      }
+      roleInfo.zeilen = rows.length;
       let best = RANK[C.defaultRole] ?? 1;
       for (const r of rows) {
         if ((r.UserEmail || "").toLowerCase() !== ctx.email) continue;
+        roleInfo.treffer++;
         if (r.App !== C.appKey && r.App !== "*") continue;
+        roleInfo.passend++;
         best = Math.max(best, RANK[String(r.Role || "").toLowerCase()] ?? 0);
       }
+      if (roleInfo.passend) roleInfo.quelle = "liste";
       return Object.keys(RANK).find(k => RANK[k] === best) || C.defaultRole;
     } catch (e) {
-      console.warn("[Rolle]", e.message);
+      roleInfo.fehler = e.detail || e.message;
+      console.warn("[Rolle]", roleInfo.fehler);
       return C.defaultRole;   // Rechteliste nicht erreichbar → Lesezugriff
     }
+  }
+
+  /** Ein Satz, warum die aktuelle Rolle so ist, wie sie ist. */
+  function roleErklaerung() {
+    if (roleInfo.quelle === "hauptadmin")
+      return `Haupt-Administrator laut Konfiguration (js/config.js).`;
+    if (roleInfo.fehler)
+      return `Rechteliste nicht auswertbar – deshalb Standardrolle „${C.defaultRole}“. ${roleInfo.fehler}`;
+    if (roleInfo.quelle === "liste")
+      return `Aus ${C.permList}: ${roleInfo.passend} passende(r) Eintrag/Einträge `
+        + `(${roleInfo.zeilen} Zeilen gelesen).`;
+    if (roleInfo.treffer)
+      return `${roleInfo.treffer} Eintrag/Einträge auf diese E-Mail gefunden, aber keiner für `
+        + `App „${C.appKey}“ oder „*“ – deshalb Standardrolle „${C.defaultRole}“.`;
+    return `Kein Eintrag in ${C.permList} für ${ctx.email} `
+      + `(${roleInfo.zeilen} Zeilen gelesen) – deshalb Standardrolle „${C.defaultRole}“.`;
   }
 
   /** Rolle erneut aus AppPermissions lesen, ohne neu anzumelden.
@@ -183,6 +225,7 @@ const DATA = (() => {
 
   return {
     ctx, cfg, RANK,
+    roleInfo, roleErklaerung,
     loadUser, loadConfig, clearCache, resolveGesellschaft, reloadRole,
     isVisible, visibleReiter, kachelnFor, discoverDomains,
     isAdmin, canWrite, isHauptAdmin, parseList, domainOf, num

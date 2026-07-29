@@ -544,3 +544,40 @@ Browser, Ablauf exakt nachgestellt: (1) Anmeldung ohne Eintrag → `viewer`;
 „(aktuell: admin)“, nach externem Zurückstufen auf `editor` meldet der Toast
 „Rolle jetzt: editor (vorher admin)“ und der Einstellungen-Reiter verschwindet.
 Konsole fehlerfrei.
+
+## 2026-07-28 (12): „immer noch viewer, auch nach Neuanmeldung“ – Ursache sichtbar gemacht
+
+**Denis:** Auch nach erneutem Anmelden bleibt die Rolle `viewer`.
+
+**Meine vorherige Erklärung (Sitzung veraltet) war damit widerlegt** – `loadRole()` läuft bei
+jeder Anmeldung, liefert aber selbst `viewer`. Statt erneut zu raten, sagt die App jetzt,
+*warum* sie zu ihrem Ergebnis kommt. Verdächtig war vor allem der `catch`-Zweig in
+`loadRole()`: er fing jeden Fehler ab, gab stillschweigend `defaultRole` zurück und schrieb
+nur ein `console.warn` – ein 403 auf die Rechteliste sah damit wie „kein Eintrag vorhanden“ aus.
+
+- `js/data.js`: `roleInfo` protokolliert die letzte Ermittlung (Quelle hauptadmin/liste/
+  standard, Fehlertext, gelesene Zeilen, Treffer auf die E-Mail, davon mit passender App).
+  `roleErklaerung()` formt daraus einen Satz. Fünf unterscheidbare Fälle statt einem stummen
+  Fallback. `listItems === null` (Liste nicht gefunden **oder** kein Zugriff) wird eigens
+  benannt, statt als „kein Eintrag“ durchzugehen.
+- `js/app.js`: Die Profilkarte zeigt den Satz direkt unter der Berechtigung – als roter
+  Kasten, wenn die Rechteliste nicht auswertbar war. Dazu der Knopf **🔄 Berechtigung neu
+  prüfen**. Wichtig, weil ein `viewer` die Einstellungen gar nicht öffnen kann und die
+  bisherige Diagnose damit unerreichbar war.
+- `js/settings.js`: Diagnose gibt die Begründung zusätzlich aus.
+
+**Verifikation:** `node --check` 8/8, impexp 50/50, fieldmap 13/13.
+Browser, alle fünf Fälle durchgespielt:
+a) passender Eintrag → `editor`, „1 passende(r) Eintrag (1 Zeilen gelesen)“;
+b) kein Eintrag → „Kein Eintrag … (0 Zeilen gelesen)“;
+c) Eintrag nur für andere App → „1 Eintrag auf diese E-Mail, aber keiner für App
+   ‚rundumdenjob‘ oder ‚*‘“;
+d) Liste nicht gefunden → „nicht gefunden oder für dieses Konto nicht lesbar“;
+e) 403 → „GET … → HTTP 403 accessDenied: Access denied“.
+Profilkarte: im Fehlerfall Klasse `err` (rot) mit der Graph-Meldung, nach Klick auf
+„Berechtigung neu prüfen“ Toast „Berechtigung jetzt: editor“ und Text wechselt auf `hint`.
+Konsole fehlerfrei.
+
+**Offen:** Welcher der fünf Fälle bei Denis zutrifft, zeigt die Zeile in der Profilkarte nach
+dem nächsten Laden. Wahrscheinlichster Kandidat ist (d)/(e): `fedorov@dihag.com` hat
+möglicherweise keinen Lesezugriff auf `/sites/ticket`, wo `AppPermissions` liegt.
