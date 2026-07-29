@@ -512,3 +512,35 @@ Mit den Scopes im Token: Hinweis in der Export-Karte verschwindet (Import-Karte 
 weiterhin korrekt wegen `User.ReadWrite.All`), Export läuft ohne Rückfall durch und die Spalte
 „Letzte Anmeldung“ ist befüllt. Diagnose zeigt die optionale Liste mit ✓/· korrekt.
 Konsole fehlerfrei.
+
+## 2026-07-28 (11): Rolle blieb nach Vergabe auf „viewer“
+
+**Denis:** Profil zeigt `viewer`, obwohl in Berechtigungen ein Eintrag
+`fedorov@dihag.com / rundumdenjob / editor` steht – „warum?“
+
+**Ursache (im Code verifiziert):** `loadRole()` wird ausschließlich aus `loadUser()` beim
+Anmelden aufgerufen; danach berührt nichts mehr `ctx.role`. Ein Eintrag, der nach der
+Anmeldung entsteht, wirkt in der laufenden Sitzung nicht. Kein Fehler in der Auswertung –
+die Zuordnung (E-Mail klein, App = `rundumdenjob` oder `*`, RANK-Vergleich) stimmt.
+
+**Zweiter Punkt, der zur Verwirrung beiträgt:** `editor` öffnet die Einstellungen **nicht**.
+Nur `admin` tut das; `editor` gibt lediglich Inhalte mit Mindestrolle `editor` frei.
+
+- `js/data.js`: neue exportierte Funktion `reloadRole()` – liest die Rolle erneut und meldet
+  `{alt, neu, geaendert}`.
+- `js/settings.js`: `rolleUebernehmen()` nach jedem Vergeben/Entfernen einer Rolle; ändert
+  sich dabei die eigene Rolle, wird über `APP.refreshTabs()` sofort die Navigation angepasst
+  (Einstellungen erscheint bzw. verschwindet). Neuer Knopf **🔄 Meine Rolle neu einlesen**
+  zeigt die aktuelle Rolle im Beschriftungstext. Die eigene Zeile in der Tabelle ist mit
+  „Ihr Konto“ markiert. Zwei Hinweistexte ergänzt: dass die Rolle beim Anmelden gelesen wird,
+  und dass nur `admin` die Einstellungen öffnet.
+- `README.md`: entsprechender Kasten im Abschnitt Rollen.
+
+**Verifikation:** `node --check` 8/8, impexp 50/50, fieldmap 13/13.
+Browser, Ablauf exakt nachgestellt: (1) Anmeldung ohne Eintrag → `viewer`;
+(2) Eintrag `editor` wird angelegt → Sitzung zeigt weiter `viewer` (= gemeldeter Effekt);
+(3) `reloadRole()` → `{alt:viewer, neu:editor, geaendert:true}`;
+(4) auf `admin` geändert → Einstellungen-Reiter erscheint. Über die Oberfläche: Knopf zeigt
+„(aktuell: admin)“, nach externem Zurückstufen auf `editor` meldet der Toast
+„Rolle jetzt: editor (vorher admin)“ und der Einstellungen-Reiter verschwindet.
+Konsole fehlerfrei.

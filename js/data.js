@@ -86,6 +86,16 @@ const DATA = (() => {
     }
   }
 
+  /** Rolle erneut aus AppPermissions lesen, ohne neu anzumelden.
+   *  Nötig, weil loadRole() sonst nur einmal beim Anmelden läuft – eine
+   *  danach vergebene Rolle würde bis zum nächsten Seitenaufruf nicht wirken.
+   *  @returns {Promise<{alt:string, neu:string, geaendert:boolean}>} */
+  async function reloadRole() {
+    const alt = ctx.role;
+    ctx.role = await loadRole();
+    return { alt, neu: ctx.role, geaendert: alt !== ctx.role };
+  }
+
   const isAdmin  = () => ctx.role === "admin";
   const canWrite = () => ctx.role === "admin" || ctx.role === "editor";
 
@@ -173,7 +183,7 @@ const DATA = (() => {
 
   return {
     ctx, cfg, RANK,
-    loadUser, loadConfig, clearCache, resolveGesellschaft,
+    loadUser, loadConfig, clearCache, resolveGesellschaft, reloadRole,
     isVisible, visibleReiter, kachelnFor, discoverDomains,
     isAdmin, canWrite, isHauptAdmin, parseList, domainOf, num
   };

@@ -42,6 +42,15 @@ zentralen Liste **`AppPermissions`** auf `/sites/ticket` – derselben Liste, di
 
 Ein Eintrag mit `App = *` gilt app-übergreifend, `App = rundumdenjob` nur hier.
 
+> **Rollenänderungen wirken nicht sofort.** Die Rolle wird beim Anmelden **einmal** gelesen.
+> Wer schon angemeldet ist, behält die alte Rolle bis zum nächsten Seitenaufruf – ein neuer
+> Eintrag in `AppPermissions` ändert an einer laufenden Sitzung nichts. Für das eigene Konto
+> gibt es in *Einstellungen → 🔑 Berechtigungen* den Knopf **🔄 Meine Rolle neu einlesen**;
+> für andere genügt ein Neuladen der Seite.
+>
+> Und: nur **admin** öffnet die Einstellungen. **editor** gibt ausschließlich Inhalte mit
+> Mindestrolle `editor` frei (z. B. den Reiter Führungskräfte).
+
 **Haupt-Administrator: `administrator@dihag.com`** – in `js/config.js` unter `hauptAdmins`
 festgeschrieben und damit immer `admin`, unabhängig von der Rechteliste. Das hält die App
 administrierbar, falls in `AppPermissions` einmal kein passender Eintrag existiert. Änderungen
