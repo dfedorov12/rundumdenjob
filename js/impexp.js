@@ -92,8 +92,23 @@ const IMPEXP = (() => {
   let importZeilen = null;   // geparste Datei
   let importPlan   = null;   // ausgewerteter Abgleich
 
-  const hatSchreibrecht = () =>
-    (AUTH.tokenInfo()?.scopes || []).includes(WRITE_SCOPE);
+  const tokenScopes = () => AUTH.tokenInfo()?.scopes || [];
+  const hatSchreibrecht = () => tokenScopes().includes(WRITE_SCOPE);
+
+  /** Zusatz-Berechtigungen, die die aktuell gewählten Felder brauchen und die
+   *  im Zugriffstoken fehlen.
+   *
+   *  Wichtig: In Entra erteilte Berechtigungen wirken erst, wenn sie auch
+   *  angefordert werden – sie stehen sonst nicht im Token, und Graph antwortet
+   *  mit „The principal does not have required permission(s)“. Sie stehen
+   *  absichtlich nicht in RUDJ_CONFIG.scopes, weil sie nur hier gebraucht
+   *  werden und sonst in jedem Token jeder Anmeldung landen würden. */
+  function fehlendeZusatzrechte(keys = [...auswahl]) {
+    const da = tokenScopes();
+    const noetig = new Set(
+      keys.map(byKey).filter(f => f && f.perm).map(f => f.perm));
+    return [...noetig].filter(s => !da.includes(s));
+  }
 
   /* ── CSV ─────────────────────────────────────────────────────────── */
 
@@ -192,7 +207,15 @@ const IMPEXP = (() => {
         log("  Erneuter Versuch ohne: " + heikel.join(", "));
         users = await GRAPH.callAll(bauUrl(ohne), 40);
         for (const f of gewaehlt.filter(x => x.perm)) {
-          log("  ⚠ „" + f.label + "“ bleibt leer – Berechtigung " + f.perm + " fehlt.");
+          log("  ⚠ „" + f.label + "“ bleibt leer – " + f.perm + " ist nicht im Token.");
+        }
+        const fehlt = fehlendeZusatzrechte(keys);
+        if (fehlt.length) {
+          log("");
+          log("  Hinweis: Die Berechtigung kann in Entra durchaus erteilt sein – sie wirkt");
+          log("  aber erst, wenn die Anmeldung sie auch anfordert. Im aktuellen Token fehlt:");
+          log("    " + fehlt.join(", "));
+          log("  Knopf „🔐 Zusatzrechte anfordern“ oben in dieser Karte holt sie nach.");
         }
       } else throw e;
     }
@@ -597,6 +620,22 @@ const IMPEXP = (() => {
           <label class="chk"><input type="checkbox" id="ieNurDomains"> nur gepflegte Domänen</label>
         </div>
 
+        ${(() => {
+          const fehlt = fehlendeZusatzrechte();
+          if (!fehlt.length) return "";
+          const felder = FIELDS.filter(f => auswahl.has(f.key) && fehlt.includes(f.perm))
+            .map(f => f.label);
+          return `<div class="warn">Für <b>${felder.map(esc).join(", ")}</b> fehlt im
+            Zugriffstoken: <b>${fehlt.map(esc).join(", ")}</b>.
+            <div style="margin-top:6px">In Entra erteilte Berechtigungen wirken erst, wenn die
+            Anmeldung sie auch anfordert – sonst antwortet Graph mit
+            <i>„The principal does not have required permission(s)“</i>. Ohne sie bleiben nur
+            diese Spalten leer, der übrige Export läuft.</div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn warn-btn sm" id="ieGrantRead">🔐 Zusatzrechte anfordern</button>
+            </div></div>`;
+        })()}
+
         <div class="row">
           <button class="btn" id="ieCsv">⬇️ CSV herunterladen</button>
           <button class="btn sec" id="ieJson">⬇️ JSON herunterladen</button>
@@ -663,6 +702,15 @@ const IMPEXP = (() => {
     verdrahten(host);
   }
 
+  /** Holt zusätzliche Berechtigungen ins Token. Erst still (prompt=none) –
+   *  ist die Zustimmung in Entra schon erteilt, merkt niemand etwas davon;
+   *  sonst schaltet auth.js automatisch auf die interaktive Anmeldung um. */
+  function anfordern(scopes) {
+    if (!scopes.length) return;
+    location.hash = "#__settings";
+    AUTH.startLogin("none", scopes);
+  }
+
   function verdrahten(host) {
     const log = m => {
       const p = $("ieLog");
@@ -692,10 +740,8 @@ const IMPEXP = (() => {
     $("ieTpl").onclick  = () => vorlageLeer();
     $("ieBulk").onclick = () => entraMassenimport();
 
-    if ($("ieGrant")) $("ieGrant").onclick = () => {
-      location.hash = "#__settings";
-      AUTH.startLogin("consent", [WRITE_SCOPE, LIFECYCLE_SCOPE]);
-    };
+    if ($("ieGrant")) $("ieGrant").onclick = () => anfordern([WRITE_SCOPE, LIFECYCLE_SCOPE]);
+    if ($("ieGrantRead")) $("ieGrantRead").onclick = () => anfordern(fehlendeZusatzrechte());
 
     const leseQuelle = async () => {
       const f = $("ieFile").files?.[0];
@@ -782,5 +828,6 @@ const IMPEXP = (() => {
       ${a.length > 200 ? `<p class="hint">Angezeigt werden die ersten 200 Konten.</p>` : ""}`;
   }
 
-  return { render, FIELDS, SETS, toCsv, fromCsv, spaltenZuordnen, normWert, istWert, jsonAlsTabelle };
+  return { render, FIELDS, SETS, toCsv, fromCsv, spaltenZuordnen, normWert, istWert,
+           jsonAlsTabelle, fehlendeZusatzrechte };
 })();

@@ -12,7 +12,8 @@ const sandbox = {
   document: { getElementById: () => null, createElement: () => ({ style: {} }) },
   RUDJ_CONFIG: { configSite: "x", lists: {}, scopes: [] },
   APP: { esc: s => String(s ?? ""), toast: () => {} },
-  AUTH: { tokenInfo: () => ({ scopes: [] }) },
+  AUTH: { tokenInfo: () => ({ scopes: sandbox.__scopes }) },
+  __scopes: [],
   GRAPH: {}, DATA: { domainOf: a => String(a).split("@")[1] || "" }, SEED: { EXPECTED: {} },
   URL: { createObjectURL: () => "blob:", revokeObjectURL: () => {} },
   Blob: class {}
@@ -142,6 +143,33 @@ check("Offboarding enthält Austrittsdatum, Kontostatus und Lizenzen",
 check("Onboarding enthält Eintrittsdatum und Führungskraft",
   ["employeeHireDate", "managerUPN"]
     .every(k => IE.FIELDS.find(f => f.key === k).sets.includes("on")));
+
+/* ── Zusatz-Berechtigungen ────────────────────────────────────────── */
+
+// In Entra erteilte Rechte wirken erst, wenn sie auch angefordert werden –
+// entscheidend ist also, was im Token steht.
+sandbox.__scopes = ["User.Read", "User.Read.All"];
+eq("Ohne Zusatz-Scopes fehlen beide",
+  IE.fehlendeZusatzrechte(["lastSignIn", "employeeLeaveDateTime"]).sort(),
+  ["AuditLog.Read.All", "User-LifeCycleInfo.Read.All"]);
+check("Nur letzte Anmeldung gewählt → nur AuditLog fehlt",
+  JSON.stringify(IE.fehlendeZusatzrechte(["lastSignIn"])) === JSON.stringify(["AuditLog.Read.All"]),
+  JSON.stringify(IE.fehlendeZusatzrechte(["lastSignIn"])));
+check("Felder ohne Zusatzrecht verlangen nichts",
+  IE.fehlendeZusatzrechte(["department", "jobTitle", "managerUPN"]).length === 0);
+
+sandbox.__scopes = ["User.Read", "User.Read.All", "AuditLog.Read.All"];
+check("Mit AuditLog im Token fehlt dafür nichts mehr",
+  IE.fehlendeZusatzrechte(["lastSignIn"]).length === 0);
+check("Austrittsdatum fehlt weiterhin",
+  JSON.stringify(IE.fehlendeZusatzrechte(["employeeLeaveDateTime"])) === JSON.stringify(["User-LifeCycleInfo.Read.All"]),
+  JSON.stringify(IE.fehlendeZusatzrechte(["employeeLeaveDateTime"])));
+
+sandbox.__scopes = ["User.Read", "AuditLog.Read.All", "User-LifeCycleInfo.Read.All"];
+check("Mit beiden Scopes ist nichts offen",
+  IE.fehlendeZusatzrechte(["lastSignIn", "employeeLeaveDateTime", "groups"]).length === 0);
+check("Gruppen brauchen kein Zusatzrecht (nur mehr Aufrufe)",
+  !IE.FIELDS.find(f => f.key === "groups").perm);
 
 /* ── Ausgabe ──────────────────────────────────────────────────────── */
 

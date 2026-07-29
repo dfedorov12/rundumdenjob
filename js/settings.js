@@ -668,6 +668,25 @@ const SETTINGS = (() => {
         } else {
           log("✓ Alle benötigten Berechtigungen sind im Token enthalten.");
         }
+
+        // Optionale Berechtigungen: nur für einzelne Funktionen, werden erst
+        // bei Bedarf angefordert. In Entra erteilt ≠ im Token vorhanden.
+        const optional = [
+          ["User.ReadWrite.All",              "Import: Konten aktualisieren"],
+          ["AuditLog.Read.All",               "Export: Letzte Anmeldung"],
+          ["User-LifeCycleInfo.Read.All",     "Export: Austrittsdatum"],
+          ["User-LifeCycleInfo.ReadWrite.All","Import: Austrittsdatum schreiben"]
+        ];
+        log("");
+        log("Optional (nur für Import/Export, werden dort bei Bedarf angefordert):");
+        for (const [s, zweck] of optional) {
+          log("  " + (ti.scopes.includes(s) ? "✓" : "·") + " " + s.padEnd(33) + zweck);
+        }
+        if (optional.some(([s]) => !ti.scopes.includes(s))) {
+          log("  „·“ heißt nur: nicht im aktuellen Token. Die Zustimmung kann in Entra");
+          log("  längst erteilt sein – angefordert wird sie über die Knöpfe im Reiter");
+          log("  „📦 Import / Export“.");
+        }
       }
 
       log("\n── SharePoint ─────────────────────────");

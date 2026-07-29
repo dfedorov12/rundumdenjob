@@ -142,9 +142,22 @@ Die Feldliste lässt sich frei anpassen. Filter: nur aktive Konten, Gastkonten e
 nur die unter *Gesellschaften & Domänen* gepflegten Domänen.
 
 Manche Felder brauchen zusätzliche Berechtigungen: **Letzte Anmeldung** verlangt
-`AuditLog.Read.All`, **Austrittsdatum** `User-LifeCycleInfo.Read.All`. Fehlen sie, wird der
-Abruf automatisch ohne diese Felder wiederholt – die Spalte bleibt dann leer, statt dass der
-ganze Export scheitert. Das Protokoll sagt, welche Berechtigung fehlt.
+`AuditLog.Read.All`, **Austrittsdatum** `User-LifeCycleInfo.Read.All`.
+
+> **Wichtig:** In Entra *erteilte* Berechtigungen wirken erst, wenn die Anmeldung sie auch
+> **anfordert**. Sonst fehlen sie im Zugriffstoken und Graph antwortet mit
+> `Authentication_MSGraphPermissionMissing: The principal does not have required Microsoft
+> Graph permission(s)` – obwohl im Portal alles grün aussieht.
+
+Sie stehen absichtlich nicht in `RUDJ_CONFIG.scopes`, weil sie nur hier gebraucht werden und
+sonst in jedem Token jeder Anmeldung landen würden. Sind sie für die gewählten Felder nötig
+und nicht im Token, zeigt die Export-Karte einen Hinweis mit dem Knopf
+**🔐 Zusatzrechte anfordern**; der holt sie still nach (`prompt=none`, bei bereits erteilter
+Zustimmung ohne jede Rückfrage). Bis dahin wird der Abruf automatisch ohne diese Felder
+wiederholt – die Spalte bleibt leer, statt dass der ganze Export scheitert.
+
+Welche optionalen Berechtigungen im aktuellen Token stecken, zeigt
+*Einstellungen → 🩺 Diagnose → 🔍 Diagnose starten*.
 
 > Die Dateien enthalten personenbezogene Daten. Nur dort ablegen, wo das zulässig ist.
 

@@ -99,6 +99,9 @@ const AUTH = (() => {
     ss.set("rudj_pv", v);
     ss.set("rudj_ps", state);
     ss.set("rudj_pm", promptMode);
+    // Zusatz-Scopes über den Redirect hinweg merken: scheitert der stille
+    // Versuch, muss der interaktive Nachschlag dieselben anfordern.
+    ss.set("rudj_px", JSON.stringify(extraScopes));
     const scope = [...new Set([...RUDJ_CONFIG.scopes, ...extraScopes])].join(" ");
     const p = new URLSearchParams({
       client_id: CID,
@@ -121,11 +124,15 @@ const AUTH = (() => {
     const err  = p.get("error");
     const wasSilent = ss.get("rudj_pm") === "none";
 
+    let extra = [];
+    try { extra = JSON.parse(ss.get("rudj_px") || "[]"); } catch {}
+
     if (err) {
       history.replaceState({}, document.title, location.pathname);
       ss.del("rudj_pm");
-      // Stiller Versuch gescheitert → interaktiv nachlegen
-      if (wasSilent) { await startLogin("select_account"); return "redirecting"; }
+      // Stiller Versuch gescheitert → interaktiv nachlegen, mit denselben
+      // Zusatz-Scopes (sonst käme ein Token ohne die angeforderten Rechte).
+      if (wasSilent) { await startLogin("select_account", extra); return "redirecting"; }
       return { error: p.get("error_description") || err };
     }
 
@@ -156,7 +163,7 @@ const AUTH = (() => {
     });
     const d = await r.json().catch(() => ({ error: "Antwort nicht lesbar" }));
 
-    ss.del("rudj_pv"); ss.del("rudj_ps"); ss.del("rudj_pm");
+    ss.del("rudj_pv"); ss.del("rudj_ps"); ss.del("rudj_pm"); ss.del("rudj_px");
 
     if (d.error) {
       if (wasSilent) { await startLogin("select_account"); return "redirecting"; }

@@ -472,3 +472,43 @@ Dateikommentar). Alle auf Diagnose bzw. die Inhaltsreiter umgestellt.
 
 **Verifikation:** `node --check` 8/8, `tests/test-impexp.mjs` 43/43,
 `tests/test-graph-fieldmap.mjs` 13/13, keine Verweise mehr auf entfallene Schritte.
+
+## 2026-07-28 (9): Zusatz-Berechtigungen wirken erst, wenn sie angefordert werden
+
+**Denis:** Export meldete
+`HTTP 403 Authentication_MSGraphPermissionMissing: The principal does not have required
+Microsoft Graph permission(s): AuditLog.Read.All` – „die rechte sind aber da“.
+
+**Ursache:** Die Rechte sind in Entra erteilt, standen aber nicht im **Zugriffstoken**. Die
+App fordert nur die fünf Scopes aus `RUDJ_CONFIG.scopes` an; `AuditLog.Read.All` und
+`User-LifeCycleInfo.Read.All` sind bewusst nicht darunter (sonst lägen sie in jedem Token
+jeder Anmeldung). Erteilte Zustimmung ≠ angeforderter Scope – Graph sieht nur das Token.
+
+- `js/impexp.js`: neue Funktion `fehlendeZusatzrechte(keys)` vergleicht die von den gewählten
+  Feldern verlangten Berechtigungen mit `AUTH.tokenInfo().scopes`. Die Export-Karte zeigt bei
+  Bedarf einen Hinweis, welches Feld welche Berechtigung braucht, erklärt den Unterschied
+  zwischen „in Entra erteilt“ und „im Token“, und bietet **🔐 Zusatzrechte anfordern**.
+  `anfordern()` startet die Anmeldung mit `prompt=none` – ist die Zustimmung erteilt, läuft
+  das ohne Rückfrage durch. Die Fallback-Meldung im Protokoll sagt jetzt „… ist nicht im
+  Token“ statt „… fehlt“ und verweist auf den Knopf.
+- `js/auth.js`: **Fehler behoben** – schlug der stille Versuch fehl, forderte der automatische
+  interaktive Nachschlag die Zusatz-Scopes nicht mehr an (`startLogin("select_account")` ohne
+  `extraScopes`); man wäre mit einem Token ohne die angeforderten Rechte zurückgekommen. Die
+  Zusatz-Scopes werden jetzt in `rudj_px` über den Redirect gemerkt und beim Nachschlag
+  wiederverwendet; Aufräumen beim Erfolg ergänzt.
+- `js/settings.js`: Die Diagnose listet zusätzlich die **optionalen** Berechtigungen
+  (`User.ReadWrite.All`, `AuditLog.Read.All`, `User-LifeCycleInfo.Read.All/.ReadWrite.All`)
+  mit ✓/· und Zweck – samt Hinweis, dass „·“ nur „nicht im aktuellen Token“ heißt.
+- `README.md`: Abschnitt Export um genau diese Unterscheidung ergänzt (mit der Original-
+  Fehlermeldung), Verweis auf die Diagnose.
+
+**Verifikation:** `node --check` 8/8; `tests/test-impexp.mjs` um 7 Prüfungen auf
+`fehlendeZusatzrechte` erweitert → **50/50 grün** (nichts gewählt → nichts nötig; nur
+lastSignIn → nur AuditLog; mit Scope im Token → nichts offen; Gruppen brauchen kein
+Zusatzrecht). `tests/test-graph-fieldmap.mjs` 13/13.
+Browser: Offboarding-Vorlage ohne die Scopes → Hinweis nennt „Austrittsdatum, Letzte
+Anmeldung“ und beide Berechtigungen, Knopf ruft `startLogin("none", [beide Scopes])`.
+Mit den Scopes im Token: Hinweis in der Export-Karte verschwindet (Import-Karte warnt
+weiterhin korrekt wegen `User.ReadWrite.All`), Export läuft ohne Rückfall durch und die Spalte
+„Letzte Anmeldung“ ist befüllt. Diagnose zeigt die optionale Liste mit ✓/· korrekt.
+Konsole fehlerfrei.
