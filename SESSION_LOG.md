@@ -610,3 +610,24 @@ der `AppPermissions` **nur** auf `/sites/IT` ausliefert und auf `/sites/ticket` 
 antwortet: Rolle `admin`, Begründung „Aus AppPermissions: 1 passende(r) Eintrag (1 Zeilen
 gelesen)“, Einstellungen-Reiter sichtbar. Gegenprobe mit `permSite = /sites/ticket`:
 `viewer` samt 403-Begründung. Konsole fehlerfrei.
+
+## 2026-07-28 (14): Bestätigung + Aufräumen der Profilkarte
+
+**Denis:** „Aus AppPermissions: 1 passende(r) Eintrag/Einträge (1 Zeilen gelesen).
+🔄 Berechtigung neu prüfen klappt, kann wieder raus“
+
+Damit ist die Ursache aus (12)/(13) bestätigt: Die Liste war auf `/sites/ticket` für sein
+Konto nicht lesbar; auf `/sites/IT` greift die Rolle sofort.
+
+- `js/app.js`: Knopf **🔄 Berechtigung neu prüfen** samt Handler aus der Profilkarte entfernt.
+  Die Begründungszeile bleibt, wird aber **nur noch im Fehlerfall** gezeigt
+  (`DATA.roleInfo.fehler`) – im Normalbetrieb wäre „Aus AppPermissions: 1 passende(r)
+  Eintrag …“ für Mitarbeitende nur technisches Rauschen, im Störungsfall ist es die einzige
+  Stelle, an der ein `viewer` die Ursache überhaupt sehen kann.
+- Unverändert bleiben: `DATA.reloadRole()` und der Knopf **🔄 Meine Rolle neu einlesen** in
+  *Einstellungen → Berechtigungen* (dort nach dem Vergeben einer Rolle sinnvoll), sowie die
+  Zeile „Begründung:“ in der Diagnose.
+
+**Verifikation:** `node --check` 8/8, impexp 50/50, fieldmap 13/13. Browser: Normalfall –
+Knopf entfernt, Erklärungszeile ausgeblendet, Rolle `admin` in der Karte; Fehlerfall (403 auf
+die Rechteliste) – rote Zeile mit der Graph-Meldung erscheint weiterhin. Konsole fehlerfrei.
