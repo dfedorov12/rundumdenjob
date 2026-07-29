@@ -36,8 +36,12 @@ const RUDJ_CONFIG = {
     kacheln:        "RUDJ_Kacheln"
   },
 
-  /* ── SharePoint: zentrale Rechteliste (wie im Orgchart) ───────────── */
-  permSite: "dihag.sharepoint.com:/sites/ticket",
+  /* ── SharePoint: zentrale Rechteliste ─────────────────────────────
+     Liegt auf derselben Site wie die Konfigurationslisten. Vorher
+     /sites/ticket – dort konnten normale Konten die Liste nicht lesen,
+     wodurch loadRole() still auf die Standardrolle zurückfiel und jede
+     vergebene Rolle wirkungslos blieb. */
+  permSite: "dihag.sharepoint.com:/sites/IT",
   permList: "AppPermissions",
   appKey:   "rundumdenjob",
 

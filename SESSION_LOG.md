@@ -581,3 +581,32 @@ Konsole fehlerfrei.
 **Offen:** Welcher der fünf Fälle bei Denis zutrifft, zeigt die Zeile in der Profilkarte nach
 dem nächsten Laden. Wahrscheinlichster Kandidat ist (d)/(e): `fedorov@dihag.com` hat
 möglicherweise keinen Lesezugriff auf `/sites/ticket`, wo `AppPermissions` liegt.
+
+## 2026-07-28 (13): Rechteliste auf /sites/IT umgestellt
+
+**Denis:** verweist auf `https://dihag.sharepoint.com/sites/IT/Lists/AppPermissions/` –
+diese Liste soll genutzt werden, und bittet um die anzulegenden Felder.
+
+Passt zur Vermutung aus (12): Die `RUDJ_`-Listen auf `/sites/IT` sind für sein Konto lesbar
+(die Reiter erscheinen ja), `/sites/ticket` offenbar nicht – dort fiel `loadRole()` still auf
+`viewer` zurück.
+
+- `js/config.js`: `permSite` → `dihag.sharepoint.com:/sites/IT`, mit Begründung im Kommentar.
+- `setup-rundumdenjob.ps1`: `-PermPath` Standard ebenfalls `/sites/IT`.
+- `admin/index.html`: Reihenfolge in `SP_SITES` gedreht, damit `/sites/IT` Standard und
+  `APPS_LESEN_VON` ist; `/sites/ticket` bleibt als „alte Liste“ umschaltbar.
+- `LISTEN-ANLEGEN.md`: neuer Abschnitt **4 · Liste `AppPermissions`** mit Spaltentabelle
+  (`UserEmail`, `App`, `Role` Pflicht; `UserDisplayName`, `Notes` optional), ausdrücklicher
+  Warnung, `App`/`Role` **nicht** als Auswahl (Choice) anzulegen – genau daran scheiterte
+  `rundumdenjob` in der alten Liste –, Hinweis auf den nötigen **Lesezugriff für alle**
+  Mitarbeitenden und einer Beispielzeile.
+- `README.md`: Abschnitt Rollen und Datenhaltung auf `/sites/IT` umgestellt, inkl. Kasten zur
+  Ursache.
+- `_test.html`: `config.js` wird jetzt ebenfalls mit Cache-Buster geladen – ohne das lief der
+  Test gegen eine veraltete Konfiguration und zeigte weiter `/sites/ticket`.
+
+**Verifikation:** `node --check` 8/8, impexp 50/50, fieldmap 13/13. Browser mit einem Stub,
+der `AppPermissions` **nur** auf `/sites/IT` ausliefert und auf `/sites/ticket` mit 403
+antwortet: Rolle `admin`, Begründung „Aus AppPermissions: 1 passende(r) Eintrag (1 Zeilen
+gelesen)“, Einstellungen-Reiter sichtbar. Gegenprobe mit `permSite = /sites/ticket`:
+`viewer` samt 403-Begründung. Konsole fehlerfrei.

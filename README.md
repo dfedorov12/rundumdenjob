@@ -31,8 +31,8 @@ Niemand muss etwas auswählen; die Zuordnung passiert beim Anmelden.
 
 ### Rollen
 Jede Person im Tenant sieht die Seite automatisch als `viewer`. Höhere Rollen kommen aus der
-zentralen Liste **`AppPermissions`** auf `/sites/ticket` – derselben Liste, die auch das
-[Organigramm](https://dfedorov12.github.io/orgchart-/) verwendet:
+zentralen Liste **`AppPermissions`** auf **`/sites/IT`** – derselben Site, auf der auch die
+Konfigurationslisten liegen. Spalten siehe [LISTEN-ANLEGEN.md](LISTEN-ANLEGEN.md):
 
 | Rolle | Bedeutung |
 |---|---|
@@ -96,7 +96,13 @@ Drei SharePoint-Listen auf **`/sites/IT`**:
 | `RUDJ_Reiter` | Navigationspunkte (`Title` = Anzeigename, `ReiterKey` = Schlüssel) |
 | `RUDJ_Kacheln` | Inhalte (`Title` = Überschrift, `ReiterKey` = Zuordnung) |
 
-Rechte: `AppPermissions` auf `/sites/ticket` (bestehende Liste, wird mitgenutzt).
+Rechte: `AppPermissions` – ebenfalls auf `/sites/IT`.
+
+> Die Liste lag zunächst auf `/sites/ticket`. Normale Konten konnten sie dort nicht lesen,
+> wodurch `loadRole()` still auf `viewer` zurückfiel und jede vergebene Rolle wirkungslos blieb.
+> **Alle Mitarbeitenden brauchen Lesezugriff auf `AppPermissions`** – sonst ist für sie jede
+> Rolle wirkungslos. Die Profilkarte auf der Startseite benennt diesen Fall inzwischen im
+> Klartext.
 
 ---
 

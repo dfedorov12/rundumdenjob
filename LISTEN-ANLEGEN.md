@@ -104,6 +104,43 @@ Die eigentlichen Inhalte innerhalb eines Reiters.
 
 ---
 
+## 4 · Liste `AppPermissions`
+
+Die zentrale Rechteliste – hier stehen nur die Konten, die **mehr** als `viewer` sein sollen.
+Alle übrigen Mitarbeitenden brauchen keinen Eintrag.
+
+**`Title` = die E-Mail-Adresse** (die App schreibt sie zusätzlich in `UserEmail`; sinnvoll,
+`Title` in „Konto" umzubenennen).
+
+| Spaltenname | Typ in SharePoint | Pflicht | Hinweis |
+|---|---|---|---|
+| `UserEmail` | Einzelne Textzeile | **ja** | Anmeldeadresse, klein geschrieben, z. B. `fedorov@dihag.com`. Danach wird abgeglichen |
+| `App` | Einzelne Textzeile | **ja** | App-Schlüssel, z. B. `rundumdenjob`. `*` gilt für alle Apps |
+| `Role` | Einzelne Textzeile | **ja** | `admin`, `editor`, `viewer` oder `none` |
+| `UserDisplayName` | Einzelne Textzeile | nein | Klarname, nur zur Anzeige im Admin-Portal |
+| `Notes` | Mehrere Textzeilen, **Nur Text** | nein | Notiz, z. B. warum die Rolle vergeben wurde |
+
+> **`App` und `Role` bitte als „Einzelne Textzeile" anlegen, nicht als Auswahl (Choice).**
+> Die alte Liste auf `/sites/ticket` hatte `App` als Auswahl mit nur `dms/tickets/orgchart/*` –
+> ein Eintrag `rundumdenjob` wurde dadurch von SharePoint abgewiesen. Als Textspalte kommt
+> jede neue App ohne Spaltenumbau dazu.
+
+**Rollen:** `admin` sieht den Reiter Einstellungen und darf alles konfigurieren, `editor` sieht
+zusätzlich Inhalte mit Mindestrolle `editor`, `viewer` ist der Standard für alle, `none` sperrt.
+
+**Lesezugriff ist entscheidend:** Jede Person, die die App benutzt, muss diese Liste **lesen**
+dürfen. Kann sie das nicht, fällt die App still auf `viewer` zurück – genau daran scheiterte
+die Vorgängerliste auf `/sites/ticket`. Die Profilkarte auf der Startseite zeigt inzwischen im
+Klartext an, wenn die Liste nicht lesbar ist.
+
+Beispielzeile:
+
+| Title | UserEmail | App | Role |
+|---|---|---|---|
+| fedorov@dihag.com | fedorov@dihag.com | rundumdenjob | admin |
+
+---
+
 ## Berechtigungen auf den Listen
 
 Die App liest und schreibt als der angemeldete Benutzer. Damit reicht:
