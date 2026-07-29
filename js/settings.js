@@ -1,7 +1,8 @@
 "use strict";
 
 /* Einstellungen (nur Rolle „admin“):
-   Gesellschaften (Domänen-Zuordnung), Reiter, Kacheln, Berechtigungen, Einrichtung */
+   Gesellschaften (Domänen-Zuordnung), Reiter, Kacheln, Berechtigungen,
+   Import/Export (js/impexp.js) und Diagnose */
 
 const SETTINGS = (() => {
 
@@ -52,7 +53,7 @@ const SETTINGS = (() => {
 
   function missingBanner(name) {
     return `<div class="warn">Die SharePoint-Liste <b>${esc(name)}</b> existiert noch nicht.
-      Legen Sie sie unter <b>🛠️ Einrichtung</b> an.</div>`;
+      Anlegen nach <b>LISTEN-ANLEGEN.md</b>; die Diagnose prüft anschließend Listen und Spalten.</div>`;
   }
 
   async function save(fn, host) {

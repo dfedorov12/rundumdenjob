@@ -4,7 +4,8 @@ Mitarbeiterportal der **DIHAG Foundry Group** als statische Single-Page-App auf 
 Ergänzt die SharePoint-Intranet-Seite „Rund um den Job“ um eine Oberfläche, deren Inhalte
 **pro Gesellschaft und pro Rolle** dynamisch ein- und ausgeblendet werden.
 
-**Live:** https://dfedorov12.github.io/rundumdenjob/
+**Live:** https://rundumdenjob.dihag.de/
+(die alte Adresse https://dfedorov12.github.io/rundumdenjob/ leitet dorthin um)
 
 ---
 
@@ -92,8 +93,10 @@ Rechte: `AppPermissions` auf `/sites/ticket` (bestehende Liste, wird mitgenutzt)
 
 ## Einrichtung
 
-**1 · Entra ID.** Unter *Authentifizierung → Single-Page-Anwendung* muss
-`https://dfedorov12.github.io/rundumdenjob/` als Redirect-URI eingetragen sein.
+**1 · Entra ID.** Unter *Authentifizierung → Single-Page-Anwendung* müssen die
+Redirect-URIs eingetragen sein – `https://rundumdenjob.dihag.de/` (produktiv) und
+optional `https://dfedorov12.github.io/rundumdenjob/` als Fallback.
+`js/auth.js` leitet die Adresse aus dem Aufruf ab und läuft unter beiden Hosts.
 Benötigte delegierte Berechtigungen: `User.Read`, `User.ReadBasic.All`, `User.Read.All`,
 `Sites.ReadWrite.All`, `Mail.Send`.
 
@@ -104,9 +107,6 @@ Connect-MgGraph -Scopes "Application.ReadWrite.All","Sites.Manage.All","Sites.Re
 ./setup-rundumdenjob.ps1 -SeedDomains
 ```
 
-Alternativ komplett in der App: **Einstellungen → 🛠️ Einrichtung → Schritte 1–3**
-(dafür braucht das Konto das Recht, auf `/sites/IT` Listen anzulegen).
-
 Oder **von Hand in SharePoint** – das umgeht die Rechtefrage beim Anlegen komplett:
 [LISTEN-ANLEGEN.md](LISTEN-ANLEGEN.md) nennt alle drei Listen mit exaktem Spaltennamen und
 Typ. Die Diagnose in der App prüft anschließend jede Liste **und jede Spalte** und benennt
@@ -115,10 +115,11 @@ Abweichungen einzeln.
 Schritt 4 des Skripts legt zusätzlich den Haupt-Administrator in `AppPermissions` an, damit er
 auch im Admin-Portal auftaucht.
 
-**3 · Startinhalte.** Als `administrator@dihag.com` anmelden, dann
-*Einstellungen → Einrichtung → „3 · Startinhalte anlegen“* – das legt acht Reiter
-und sechzehn Beispielkacheln an. Bereits vorhandene Einträge werden nie überschrieben, der
-Schritt lässt sich gefahrlos wiederholen.
+**3 · Prüfen.** Als `administrator@dihag.com` anmelden und
+*Einstellungen → 🩺 Diagnose → 🔍 Diagnose starten* aufrufen: erwartet wird je Liste
+`✓ vorhanden` und `✓ alle N Spalten nutzbar`. Inhalte werden danach über die Reiter
+*Gesellschaften & Domänen*, *Reiter* und *Kacheln* gepflegt; eine bestehende Konfiguration
+lässt sich über *📦 Import / Export → Portalkonfiguration* übernehmen.
 
 ---
 
@@ -186,7 +187,7 @@ nie Vorhandenes; neue Reiter erscheinen sofort in der Navigation.
 ### „Access denied" beim Anlegen der Listen
 
 Die Meldung kommt von SharePoint und hat genau zwei mögliche Ursachen. *Einstellungen →
-🛠️ Einrichtung → 🩺 Diagnose* unterscheidet sie:
+🩺 Diagnose* unterscheidet sie:
 
 1. **`Sites.ReadWrite.All` fehlt im Token.** Die Diagnose listet die Berechtigungen des
    Access-Tokens (`scp`-Claim). Fehlt der Eintrag, muss die Berechtigung an der
@@ -235,8 +236,9 @@ Application-Berechtigung. Das Secret niemals ins Repository — nur interaktiv e
 
 ### „AADSTS50011" direkt beim Aufruf
 
-Die Redirect-URI `https://dfedorov12.github.io/rundumdenjob/` fehlt in der
-App-Registrierung (Abschnitt *Einrichtung*, Schritt 1).
+Die aufgerufene Adresse ist nicht als Redirect-URI in der App-Registrierung hinterlegt.
+Eingetragen sein muss genau der Ursprung mit Schrägstrich am Ende, also
+`https://rundumdenjob.dihag.de/` (Abschnitt *Einrichtung*, Schritt 1).
 
 ## Aufbau
 

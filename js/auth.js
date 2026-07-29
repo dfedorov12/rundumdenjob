@@ -15,7 +15,19 @@ const AUTH = (() => {
 
   const TID  = RUDJ_CONFIG.tenantId;
   const CID  = RUDJ_CONFIG.clientId;
-  const RURI = location.origin + location.pathname;
+
+  /** Redirect-URI aus der aufgerufenen Adresse ableiten, damit dieselbe
+   *  Auslieferung unter mehreren Hosts funktioniert (eigene Domäne
+   *  https://rundumdenjob.dihag.de/ und Fallback github.io/rundumdenjob/).
+   *  „index.html“ wird abgeschnitten und ein Schrägstrich am Ende erzwungen –
+   *  sonst passt die Adresse nicht mehr zur Registrierung in Entra und der
+   *  Login bricht mit AADSTS50011 ab. */
+  const RURI = (() => {
+    let p = location.pathname.replace(/index\.html?$/i, "");
+    if (!p.endsWith("/")) p += "/";
+    return location.origin + p;
+  })();
+
   const SC   = RUDJ_CONFIG.scopes.join(" ");
   const AU   = `https://login.microsoftonline.com/${TID}/oauth2/v2.0/authorize`;
   const TU   = `https://login.microsoftonline.com/${TID}/oauth2/v2.0/token`;

@@ -30,7 +30,7 @@
 
 param(
     [string] $ClientId    = "c7710322-13ab-44c5-8ba1-314ca5cdb38d",  # = js/config.js
-    [string] $RedirectUri = "https://dfedorov12.github.io/rundumdenjob/",
+    [string] $RedirectUri = "https://rundumdenjob.dihag.de/",
     [string] $SitePath    = "dihag.sharepoint.com:/sites/IT",
     [string] $PermPath    = "dihag.sharepoint.com:/sites/ticket",
     [string] $HauptAdmin  = "administrator@dihag.com",              # = js/config.js hauptAdmins

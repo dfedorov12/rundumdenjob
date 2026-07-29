@@ -3,11 +3,10 @@
 Für „Rund um den Job" braucht es drei Listen auf **https://dihag.sharepoint.com/sites/IT**.
 Sie dienen nur als Konfigurationsspeicher – es kommen keine personenbezogenen Daten hinein.
 
-Wenn alles angelegt ist: in der App *Einstellungen → 🛠️ Einrichtung → 🩺 Diagnose →
-🔍 Diagnose starten*. Die Diagnose prüft jede Liste **und jede Spalte** und benennt
-Abweichungen einzeln. Danach genügen die Schritte *2 · Gesellschaften aus Tenant übernehmen*
-und *3 · Startinhalte anlegen* in der App – die brauchen nur Schreibrechte auf
-Listeneinträge.
+Wenn alles angelegt ist: in der App *Einstellungen → 🩺 Diagnose → 🔍 Diagnose starten*.
+Die Diagnose prüft jede Liste **und jede Spalte** und benennt Abweichungen einzeln.
+Danach werden die Inhalte über *Gesellschaften & Domänen*, *Reiter* und *Kacheln* gepflegt –
+das braucht nur Schreibrechte auf Listeneinträge, keinen Vollzugriff auf die Website.
 
 ---
 
@@ -120,11 +119,13 @@ dort haben die Mitarbeitenden Lesezugriff.
 
 ## Kontrolle
 
-1. In der App *Einstellungen → 🛠️ Einrichtung → 🩺 Diagnose → 🔍 Diagnose starten*.
+1. In der App *Einstellungen → 🩺 Diagnose → 🔍 Diagnose starten*.
    Erwartet: je Liste `✓ vorhanden` und `✓ alle N Spalten nutzbar`.
 2. Zeilen mit `·` sind Hinweise, keine Fehler – dort hat SharePoint einen abweichenden
    internen Namen vergeben, den die App automatisch berücksichtigt.
 3. `⚠ fehlende Spalten: …` bedeutet, dass die App den Namen nicht zuordnen konnte. Dann die
    Spalte löschen und mit dem richtigen Namen neu anlegen; Umbenennen ändert den internen
    Namen nicht mehr.
-4. Danach *2 · Gesellschaften aus Tenant übernehmen* und *3 · Startinhalte anlegen*.
+4. Danach die Inhalte pflegen: *Gesellschaften & Domänen* (inkl. „🔍 Domänen im Tenant
+   suchen"), *Reiter* und *Kacheln*. Eine bestehende Konfiguration lässt sich über
+   *📦 Import / Export → Portalkonfiguration* übernehmen.

@@ -13,9 +13,11 @@ const RUDJ_CONFIG = {
   // bereits Sites.ReadWrite.All besitzt (nötig, damit Admins die Einstellungen
   // schreiben können). Alternative (nur lesend): die Orgchart-Registrierung
   // "4bd5e16e-5345-4ded-adc8-2a7f25922786".
-  // Wichtig: Unter „Authentifizierung → Single-Page-Anwendung“ muss
-  // https://dfedorov12.github.io/rundumdenjob/ als Redirect-URI eingetragen
-  // sein (siehe setup-rundumdenjob.ps1).
+  // Wichtig: Unter „Authentifizierung → Single-Page-Anwendung“ müssen die
+  // Redirect-URIs eingetragen sein (siehe setup-rundumdenjob.ps1):
+  //   https://rundumdenjob.dihag.de/            (eigene Domäne, produktiv)
+  //   https://dfedorov12.github.io/rundumdenjob/ (Fallback, leitet dorthin um)
+  // js/auth.js leitet die Adresse aus dem Aufruf ab und funktioniert auf beiden.
   clientId: "c7710322-13ab-44c5-8ba1-314ca5cdb38d",
 
   scopes: [

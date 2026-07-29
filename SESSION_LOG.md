@@ -437,3 +437,38 @@ angezeigten Inhalt zu verwerfen), das `konfigImport` nun aufruft.
 **Anmerkung zu einer früheren Fehlvermutung:** Ein Testlauf meldete „3 Einträge angelegt“ und
 einen doppelten Reiter – Ursache war mein eigener, bereits veränderter Teststand innerhalb
 derselben Seitensitzung, nicht der Code. Frisch geladen: 1 angelegt, keine Dopplung.
+
+## 2026-07-28 (8): Eigene Domäne rundumdenjob.dihag.de
+
+**Denis:** „ich habe cname und weblink in Azure angepasst auf rundumdenjob.dihag.de“ / „und
+github auch“.
+
+Vorgefunden: GitHub Pages steht bereits auf `rundumdenjob.dihag.de`, HTTPS erzwungen, Status
+`built`; die `CNAME`-Datei hatte GitHub beim Setzen der Domain selbst ins Repo committet
+(`cbc10f1 Create CNAME`) – lokal nur `git pull` nötig, nichts anzulegen.
+
+**Live geprüft:** `https://rundumdenjob.dihag.de/` → 200, `js/impexp.js` → 200,
+`assets/dihag-logo.png` → 200; `https://dfedorov12.github.io/rundumdenjob/` → **301** auf die
+neue Adresse.
+
+**Härtung in `js/auth.js`:** Die Redirect-URI wurde als `location.origin + location.pathname`
+gebildet. Auf der eigenen Domäne ist das `/`, aber ein Aufruf mit `/index.html` (Lesezeichen,
+verlinkte Adresse) hätte eine Adresse erzeugt, die nicht in Entra registriert ist → AADSTS50011.
+Jetzt wird `index.html`/`index.htm` abgeschnitten und ein Schrägstrich am Ende erzwungen.
+Isoliert nachgerechnet, 6/6 Fälle korrekt: `/`, `/index.html`, `/index.htm`,
+`/rundumdenjob/`, `/rundumdenjob/index.html` – die Ableitung bleibt dynamisch, damit dieselbe
+Auslieferung unter eigener Domäne **und** github.io funktioniert.
+
+**Doku nachgezogen:** README-Kopf auf die neue Live-Adresse (mit Hinweis auf die Umleitung),
+Einrichtung Schritt 1 nennt beide Redirect-URIs, Fehlersuche-Abschnitt AADSTS50011 umformuliert
+(„genau der Ursprung mit Schrägstrich am Ende"), `js/config.js`-Kommentar entsprechend,
+`setup-rundumdenjob.ps1` Standard-`-RedirectUri` auf `https://rundumdenjob.dihag.de/`.
+
+**Dabei aufgeräumt:** Mehrere Stellen verwiesen noch auf den in (6) entfernten
+Einrichtungs-Reiter und seine Schritte „2 · Gesellschaften aus Tenant übernehmen“ /
+„3 · Startinhalte anlegen“ – README (Einrichtung Schritt 2/3, Fehlersuche),
+LISTEN-ANLEGEN.md (Einleitung + Kontrolle), `js/settings.js` (Banner bei fehlender Liste und
+Dateikommentar). Alle auf Diagnose bzw. die Inhaltsreiter umgestellt.
+
+**Verifikation:** `node --check` 8/8, `tests/test-impexp.mjs` 43/43,
+`tests/test-graph-fieldmap.mjs` 13/13, keine Verweise mehr auf entfallene Schritte.
