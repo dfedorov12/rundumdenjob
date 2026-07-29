@@ -483,7 +483,17 @@ const APP = (() => {
     open(current);
   }
 
-  return { boot, open, reload, toast, modal, esc, initials, emptyState, safeUrl };
+  /** Reiterleiste neu aufbauen, ohne den aktuellen Inhalt zu verwerfen –
+   *  nötig, wenn sich die Konfiguration im Hintergrund geändert hat
+   *  (z. B. nach dem Import einer Portalkonfiguration). */
+  function refreshTabs() {
+    renderTabs();
+    document.querySelectorAll("#tabBar button")
+      .forEach(b => b.classList.toggle("active", b.dataset.key === current));
+    layoutTabs();
+  }
+
+  return { boot, open, reload, refreshTabs, toast, modal, esc, initials, emptyState, safeUrl };
 })();
 
 document.addEventListener("DOMContentLoaded", APP.boot);

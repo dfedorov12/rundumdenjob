@@ -358,3 +358,82 @@ Konsole fehlerfrei.
 deshalb liefert der `ResizeObserver` dort keine Callbacks; die Neuberechnung wurde über den
 zusätzlich registrierten `window.resize`-Pfad geprüft. Screenshots waren aus demselben Grund
 nicht möglich.
+
+## 2026-07-28 (7): Import / Export für Entra ID (On-/Offboarding, Migration)
+
+**Denis:** „Import und eXport bei Einstellungen hinzufügen um alle Azure mit allen
+Notwendigen Feldern für On und offboardings oder allgemein Migration“
+
+**Neuer Unterreiter „📦 Import / Export“** (zwischen Berechtigungen und Diagnose), neue Datei
+`js/impexp.js` (~780 Zeilen), eingehängt über `index.html` und `SETTINGS.SUBS`.
+
+**Feldkatalog (36 Felder)** mit je `graph`-Feldname, Vorlagenzugehörigkeit, Schreibbarkeit und
+nötiger Zusatzberechtigung. Drei Vorlagen: Onboarding (Stammdaten), Offboarding (Kontostatus,
+Austrittsdatum, Lizenzen, Gruppen, letzte Anmeldung), Migration (alles). Feldauswahl frei
+anpassbar.
+
+**Export:** `/users` mit `$select` + `$expand=manager`, Paging über `callAll`.
+Lizenz-SKUs werden über `/subscribedSkus` in Klarnamen übersetzt, Gruppen optional je Konto
+(als „langsam“ gekennzeichnet). Filter: nur aktive, Gastkonten, nur gepflegte Domänen.
+Ausgabe als CSV (Semikolon, UTF-8 mit BOM, CRLF – deutsches Excel) oder JSON.
+**Selbstheilung bei fehlenden Rechten:** schlägt der Abruf fehl, wird ohne die Felder mit
+`perm` erneut versucht; die Spalte bleibt leer und das Protokoll nennt die fehlende
+Berechtigung (`AuditLog.Read.All`, `User-LifeCycleInfo.Read.All`), statt den ganzen Export zu
+verlieren.
+
+**Import (nur Aktualisierung vorhandener Konten):** eigener CSV-Parser (erkennt `;` oder `,`,
+versteht Anführungszeichen samt Verdopplung, BOM, CRLF/LF), JSON ebenfalls möglich.
+Spaltenzuordnung akzeptiert deutsche Bezeichnung **und** technischen Schlüssel, tolerant
+gegenüber Schreibweise und Leerzeichen. Abgleich über UPN/ID/Personalnummer/E-Mail.
+Leere Zelle = nicht ändern, `-` = leeren. Datum `TT.MM.JJJJ` und `JJJJ-MM-TT`, Mehrfachwerte
+über `|;,`. `🔍 Prüfen` schreibt nichts und zeigt eine Vorschau vorher→nachher je Feld;
+`⬆️ Übernehmen` erst nach Bestätigungsdialog mit Anzahl. Führungskraft über
+`PUT /users/{id}/manager/$ref`. Fehlerzeilen als CSV.
+
+**Bewusste Grenzen** (im Code und in der Oberfläche begründet): keine Kontenanlage, keine
+Kennwörter, kein Ändern von UPN/E-Mail, keine Lizenz- oder Gruppenzuweisung. Für Neuanlagen
+erzeugt die App die **offizielle Entra-Massenimport-Vorlage** (Portal vergibt das Kennwort).
+Die Spalte „Konto aktiv“ wird nur mit ausdrücklichem Häkchen übernommen; der
+Bestätigungsdialog nennt dann die Zahl der zu deaktivierenden Konten.
+
+**Berechtigung:** `User.ReadWrite.All` steht absichtlich **nicht** in `RUDJ_CONFIG.scopes` –
+sonst müsste jede Anmeldung im Tenant zustimmen. `js/auth.js` `startLogin(prompt, extraScopes)`
+fordert sie einmalig an (`prompt=consent`), der Reiter erkennt über `AUTH.tokenInfo()`, ob sie
+vorliegt.
+
+**Portalkonfiguration:** Gesellschaften/Reiter/Kacheln als JSON exportieren und importieren
+(ohne SharePoint-IDs). Import legt nur Fehlendes an, überschreibt nie.
+
+**Dabei gefunden und behoben:** Nach dem Konfig-Import erschienen neue Reiter erst nach
+manuellem Neuladen. `js/app.js` bekam `refreshTabs()` (Leiste neu aufbauen ohne den
+angezeigten Inhalt zu verwerfen), das `konfigImport` nun aufruft.
+
+**Verifikation:**
+- `node --check` 8/8. Neuer Node-Test `tests/test-impexp.mjs` lädt die **echte** `js/impexp.js`
+  im `vm` mit minimalen Stubs: **43/43 grün** – CSV mit BOM/CRLF/Semikolon, Maskierung von
+  `"` und `;`, Rundlauf schreiben→lesen, Komma-CSV, verdoppelte Anführungszeichen, Leerzeilen;
+  Spaltenzuordnung deutsch/technisch; Wertumwandlung (leer/`-`/Ja/Nein/Listen/beide
+  Datumsformate/unlesbares Datum wird verworfen); Ist-Werte inkl. Manager und Listenvergleich;
+  Katalogregeln (UPN, E-Mail, Lizenzen, Gruppen nicht beschreibbar; kein beschreibbares Feld
+  berührt Kennwörter). `tests/test-graph-fieldmap.mjs` weiter 13/13.
+  Ein Testfehlschlag war mein eigener Test (`lastPasswordChange` matchte /pass/) – Prüfung auf
+  die tatsächliche Absicht umgestellt.
+- Browser gegen ein simuliertes Verzeichnis (5 Konten inkl. Gast, deaktiviertem Konto,
+  Manager, Lizenz): Export Offboarding liefert 4 Zeilen mit aufgelöster Lizenz
+  (`ENTERPRISEPACK`) und Manager; Gastkonto übersprungen; mit Filtern 3 Zeilen.
+  Fehlendes `AuditLog.Read.All` → Rückfall greift, Spalte bleibt vorhanden **und leer**,
+  Manager trotzdem befüllt (Stub bildet `$select` nach).
+  Import: 1 Konto geändert, 1 unverändert, 1 unbekannt; PATCH enthält exakt
+  `{department, officeLocation}`. Offboarding-Lauf: **ohne** Häkchen wird `accountEnabled`
+  nicht geschrieben (nur Austrittsdatum + Telefon) und keine Warnung gezeigt, **mit** Häkchen
+  erscheint „1 Konten deaktiviert“ und der PATCH enthält `accountEnabled:false`;
+  Manager per `PUT …/manager/$ref` mit korrekter Ziel-ID; deutsches Datum korrekt zu
+  `2026-08-31T00:00:00Z` gewandelt.
+  Vorlagen: leere Vorlage nur mit Kopfzeile; Entra-Massenimport enthält `[passwordProfile]`
+  mit **leerer** Kennwortspalte. Konfig-Export ohne IDs; Reimport 0 angelegt / 39 übersprungen;
+  mit einem zusätzlichen Reiter genau 1 angelegt und sofort in der Navigation.
+  Konsole fehlerfrei.
+
+**Anmerkung zu einer früheren Fehlvermutung:** Ein Testlauf meldete „3 Einträge angelegt“ und
+einen doppelten Reiter – Ursache war mein eigener, bereits veränderter Teststand innerhalb
+derselben Seitensitzung, nicht der Code. Frisch geladen: 1 angelegt, keine Dopplung.

@@ -122,6 +122,65 @@ Schritt lässt sich gefahrlos wiederholen.
 
 ---
 
+## Import / Export (Entra ID)
+
+*Einstellungen → 📦 Import / Export*, nur für die Rolle `admin`.
+
+### Export
+
+Liest alle Konten des Tenants über Microsoft Graph und lädt sie als CSV (Excel-tauglich:
+Semikolon, UTF-8 mit BOM, CRLF) oder JSON herunter. Drei Vorlagen wählen die Felder vor:
+
+| Vorlage | Zweck |
+|---|---|
+| 🚀 **Onboarding** | Stammdaten für neue Mitarbeitende – Name, Position, Abteilung, Eintrittsdatum, Führungskraft, Kontaktdaten, Nutzungsstandort |
+| 🚪 **Offboarding** | Was beim Austritt zu prüfen ist – Kontostatus, Austrittsdatum, Lizenzen, Gruppen, letzte Anmeldung, Führungskraft |
+| 📦 **Migration** | Alle verfügbaren Felder |
+
+Die Feldliste lässt sich frei anpassen. Filter: nur aktive Konten, Gastkonten einbeziehen,
+nur die unter *Gesellschaften & Domänen* gepflegten Domänen.
+
+Manche Felder brauchen zusätzliche Berechtigungen: **Letzte Anmeldung** verlangt
+`AuditLog.Read.All`, **Austrittsdatum** `User-LifeCycleInfo.Read.All`. Fehlen sie, wird der
+Abruf automatisch ohne diese Felder wiederholt – die Spalte bleibt dann leer, statt dass der
+ganze Export scheitert. Das Protokoll sagt, welche Berechtigung fehlt.
+
+> Die Dateien enthalten personenbezogene Daten. Nur dort ablegen, wo das zulässig ist.
+
+### Import – vorhandene Konten aktualisieren
+
+Abgleich über Anmeldename, Objekt-ID, Personalnummer oder E-Mail. Spaltenüberschriften werden
+sowohl als deutsche Bezeichnung („Abteilung") als auch als technischer Schlüssel
+(`department`) erkannt; unbekannte Spalten werden ignoriert.
+
+* **Leere Zelle** = Feld nicht anfassen. Ein einzelnes `-` **leert** das Feld.
+* Datumsangaben in `TT.MM.JJJJ` oder `JJJJ-MM-TT`; Mehrfachwerte mit `|`, `;` oder `,`.
+* *🔍 Prüfen* ändert nichts und zeigt eine Vorschau **vorher → nachher** je Konto und Feld.
+* Erst *⬆️ Änderungen übernehmen* schreibt, nach einer Bestätigung mit Anzahl.
+* Fehlgeschlagene Zeilen werden als CSV heruntergeladen.
+
+Bewusst **nicht** möglich: Konten anlegen, Kennwörter setzen, Anmeldename oder E-Mail ändern,
+Lizenzen oder Gruppen zuweisen. Die Spalte **Konto aktiv** wird nur übernommen, wenn das
+Häkchen darunter gesetzt ist – sonst bleibt der Kontostatus unangetastet, auch wenn die
+Spalte in der Datei steht.
+
+Schreiben braucht `User.ReadWrite.All`. Diese Berechtigung steht absichtlich **nicht** in
+`RUDJ_CONFIG.scopes` – sonst müsste ihr jede Anmeldung im Tenant zustimmen. Der Knopf
+*🔐 Schreibrechte anfordern* holt sie einmalig für die laufende Sitzung.
+
+### Neuanlagen (Onboarding)
+
+Konten anzulegen heißt, Startkennwörter zu vergeben – das gehört nicht in eine
+Browser-Anwendung. Die App erzeugt stattdessen die Vorlage im offiziellen Format für
+*Entra-Portal → Benutzer → Massenvorgänge → Benutzer erstellen*; das Kennwort setzt Entra
+beim Import. Anschließend die Stammdaten hier per Import nachziehen.
+
+### Portalkonfiguration
+
+Gesellschaften, Reiter und Kacheln als JSON – für den Umzug in eine andere Umgebung oder als
+Sicherung vor größeren Umbauten. Der Import legt nur fehlende Einträge an und überschreibt
+nie Vorhandenes; neue Reiter erscheinen sofort in der Navigation.
+
 ## Fehlersuche
 
 ### „Access denied" beim Anlegen der Listen
@@ -189,6 +248,7 @@ js/auth.js            PKCE-Anmeldung mit stillem SSO
 js/graph.js           Graph-Aufrufe und SharePoint-Listen-CRUD
 js/data.js            Benutzerkontext, Rollen, Sichtbarkeitslogik
 js/seed.js            Listenschema und Startinhalte
+js/impexp.js          Import/Export von Entra-Benutzerdaten und Portalkonfiguration
 js/settings.js        Einstellungen (nur admin)
 js/app.js             Oberfläche, Reiter, Kacheln, Intranet-Anbindung
 setup-rundumdenjob.ps1  Einrichtung per Microsoft.Graph-PowerShell

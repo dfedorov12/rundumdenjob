@@ -15,6 +15,7 @@ const SETTINGS = (() => {
     ["reiter",         "🗂️ Reiter"],
     ["kacheln",        "🔳 Kacheln"],
     ["rechte",         "🔑 Berechtigungen"],
+    ["impexp",         "📦 Import / Export"],
     ["diagnose",       "🩺 Diagnose"]
   ];
 
@@ -43,7 +44,8 @@ const SETTINGS = (() => {
       nav.appendChild(b);
     }
     ({ gesellschaften: viewGes, reiter: viewReiter, kacheln: viewKacheln,
-       rechte: viewRechte, diagnose: viewDiagnose }[sub] || viewGes)($("setBody"));
+       rechte: viewRechte, impexp: IMPEXP.render,
+       diagnose: viewDiagnose }[sub] || viewGes)($("setBody"));
   }
 
   const listMissing = name => DATA.cfg.missing.includes(name);

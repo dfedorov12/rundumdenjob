@@ -76,18 +76,23 @@ const AUTH = (() => {
   }
 
   /** Startet den Redirect zur Anmeldeseite.
-   *  @param {"none"|"select_account"} promptMode */
-  async function startLogin(promptMode) {
+   *  @param {"none"|"select_account"|"consent"} promptMode
+   *  @param {string[]} [extraScopes] Zusätzliche Berechtigungen, die nur bei
+   *    Bedarf angefordert werden (z. B. Schreibrechte für den Import). Sie
+   *    stehen bewusst NICHT in RUDJ_CONFIG.scopes – sonst müsste jede
+   *    Anmeldung im Tenant dafür zustimmen. */
+  async function startLogin(promptMode, extraScopes = []) {
     const { v, c } = await mkPKCE();
     const state = b64(crypto.getRandomValues(new Uint8Array(16)));
     ss.set("rudj_pv", v);
     ss.set("rudj_ps", state);
     ss.set("rudj_pm", promptMode);
+    const scope = [...new Set([...RUDJ_CONFIG.scopes, ...extraScopes])].join(" ");
     const p = new URLSearchParams({
       client_id: CID,
       response_type: "code",
       redirect_uri: RURI,
-      scope: SC + " offline_access",
+      scope: scope + " offline_access",
       state,
       code_challenge: c,
       code_challenge_method: "S256",
