@@ -384,6 +384,7 @@ const APP = (() => {
             <dt>E-Mail</dt><dd>${esc(ctx.email)}</dd>
             <dt>Position</dt><dd>${esc(ctx.me.jobTitle || "–")}</dd>
             <dt>Abteilung</dt><dd>${esc(ctx.me.department || "–")}</dd>
+            <dt>Werk</dt><dd>${esc(ctx.me.companyName || "–")}</dd>
             <dt>Standort</dt><dd>${esc(ctx.me.officeLocation || "–")}</dd>
             <dt>Gesellschaft</dt><dd>${esc(g ? (g.Gesellschaft || g.Title) : "automatisch nicht zugeordnet")}</dd>
             <dt>Zugeordnet über</dt><dd>@${esc(ctx.domain || "–")}</dd>
@@ -409,13 +410,42 @@ const APP = (() => {
     loadIntranetNews();
   }
 
+  /** Eine Person in der Liste: Zeile zum Anklappen, Kontaktdaten erst
+   *  nach dem Klick. Vorher war die Zeile ein reiner mailto-Link – die
+   *  übrigen Angaben waren gar nicht erreichbar. */
+  function person(p, meinWerk) {
+    const tel = [p.mobilePhone, ...(p.businessPhones || [])].filter(Boolean);
+    const werk = p.companyName || "";
+    const fremd = werk && meinWerk && werk !== meinWerk;
+    const zeile = (dt, dd) => dd ? `<dt>${dt}</dt><dd>${dd}</dd>` : "";
+    return `
+      <div class="person" data-person tabindex="0" role="button">
+        <span class="avatar">${esc(initials(p.displayName))}</span>
+        <span class="pn"><b>${esc(p.displayName)}</b><small>${esc(p.jobTitle || p.mail || "")}</small></span>
+        ${fremd ? `<span class="pill gray" style="font-size:10px">${esc(werk)}</span>` : ""}
+        <span class="chev">▾</span>
+      </div>
+      <div class="person-det" hidden>
+        <dl class="kv">
+          ${zeile("E-Mail", p.mail ? `<a href="mailto:${esc(p.mail)}">${esc(p.mail)}</a>` : "")}
+          ${tel.map(t => zeile("Telefon", `<a href="tel:${esc(String(t).replace(/\s+/g, ""))}">${esc(t)}</a>`)).join("")}
+          ${zeile("Position", esc(p.jobTitle || ""))}
+          ${zeile("Abteilung", esc(p.department || ""))}
+          ${zeile("Werk", esc(werk))}
+          ${zeile("Standort", esc(p.officeLocation || ""))}
+        </dl>
+        ${!p.mail && !tel.length ? `<p class="hint" style="margin:0">Keine Kontaktdaten hinterlegt.</p>` : ""}
+      </div>`;
+  }
+
   /** Anbindung an das Organigramm: Vorgesetzte:r + direkte Kolleg:innen
    *  kommen aus denselben Graph-Daten, die auch das Orgchart nutzt. */
   async function loadOrgBox() {
     const box = $("orgBox");
     if (!box) return;
     try {
-      const sel = "$select=id,displayName,jobTitle,mail,department";
+      const sel = "$select=id,displayName,jobTitle,mail,department,officeLocation,"
+        + "companyName,mobilePhone,businessPhones";
       let mgr = null;
       try { mgr = await GRAPH.call("/me/manager?" + sel); } catch {}
       let peers = [];
@@ -433,21 +463,49 @@ const APP = (() => {
       const seen = new Set(reports.map(p => p.id));
       peers = peers.filter(p => !seen.has(p.id));
 
-      const person = p => `
-        <a class="person" href="mailto:${esc(p.mail || "")}">
-          <span class="avatar">${esc(initials(p.displayName))}</span>
-          <span class="pn"><b>${esc(p.displayName)}</b><small>${esc(p.jobTitle || p.mail || "")}</small></span>
-        </a>`;
+      // Sichtbarkeit nach Rolle einschränken – Werk = companyName, wie im Orgchart.
+      const scope = (C.orgScope || {})[DATA.ctx.role] || "werk";
+      const meinWerk = DATA.ctx.me.companyName || "";
+      const imScope = p => {
+        if (scope === "alle") return true;
+        if (scope === "gesellschaft") return DATA.ctx.domains.includes(DATA.domainOf(p.mail));
+        return !meinWerk || (p.companyName || "") === meinWerk;   // werk
+      };
+      const vorFilter = reports.length + peers.length;
+      reports = reports.filter(imScope);
+      peers   = peers.filter(imScope);
+      const ausgeblendet = vorFilter - reports.length - peers.length;
 
       const parts = [];
-      if (mgr) parts.push(`<h3 class="section">Führungskraft</h3><div class="people">${person(mgr)}</div>`);
+      if (mgr) parts.push(`<h3 class="section">Führungskraft</h3>
+        <div class="people">${person(mgr, meinWerk)}</div>`);
       if (reports.length) parts.push(`<h3 class="section">Mein Team (${reports.length})</h3>
-        <div class="people">${reports.slice(0, 6).map(person).join("")}</div>`);
+        <div class="people">${reports.slice(0, 8).map(p => person(p, meinWerk)).join("")}</div>`);
       if (peers.length) parts.push(`<h3 class="section">Kolleginnen &amp; Kollegen</h3>
-        <div class="people">${peers.slice(0, 5).map(person).join("")}</div>`);
+        <div class="people">${peers.slice(0, 8).map(p => person(p, meinWerk)).join("")}</div>`);
 
       box.innerHTML = parts.length ? parts.join("")
         : `<p class="hint">Für Ihr Konto sind im Verzeichnis keine Zuordnungen hinterlegt.</p>`;
+
+      if (parts.length) {
+        box.insertAdjacentHTML("beforeend", `<p class="hint" style="margin-top:14px">
+          ${scope === "alle" ? "Alle Werke sichtbar."
+            : scope === "gesellschaft" ? `Eingeschränkt auf die Gesellschaft <b>@${esc(DATA.ctx.domain)}</b>.`
+            : meinWerk ? `Eingeschränkt auf Ihr Werk <b>${esc(meinWerk)}</b>.`
+                       : "Kein Werk im Verzeichnis hinterlegt (Feld <code>companyName</code>) – es wird nicht eingeschränkt."}
+          ${ausgeblendet > 0 ? ` ${ausgeblendet} Person(en) aus anderen Werken ausgeblendet.` : ""}
+          Zum Aufklappen der Kontaktdaten auf eine Person klicken.</p>`);
+      }
+
+      box.querySelectorAll("[data-person]").forEach(el => el.onclick = () => {
+        const d = el.nextElementSibling;
+        const offen = !d.hidden;
+        box.querySelectorAll(".person-det").forEach(x => x.hidden = true);
+        box.querySelectorAll("[data-person]").forEach(x => x.classList.remove("open"));
+        if (offen) return;
+        d.hidden = false;
+        el.classList.add("open");
+      });
     } catch (e) {
       box.innerHTML = `<p class="hint">Verzeichnisdaten konnten nicht geladen werden.</p>`;
     }

@@ -80,6 +80,21 @@ Kacheltypen: `link` (öffnet ein Ziel – Intranet-Seite, Timebutler, Schwester-
 ### Anbindung an das Intranet und das Organigramm
 * Der Reiter **Start** zeigt Profil, Führungskraft, eigenes Team und Kolleg:innen –
   aus denselben Graph-Daten, aus denen sich auch das Organigramm speist, samt Direktlink dorthin.
+  Ein Klick auf eine Person klappt ihre Kontaktdaten auf (E-Mail, Telefon, Position, Abteilung,
+  Werk, Standort); im zugeklappten Zustand steht dort nur Name und Position.
+* **Sichtbarkeit nach Werk.** Wie weit jemand ins Verzeichnis schauen darf, steuert
+  `RUDJ_CONFIG.orgScope` je Rolle. Das Werk kommt – wie im Organigramm – aus dem Entra-Feld
+  `companyName`.
+
+  | Wert | Wirkung |
+  |---|---|
+  | `werk` | nur Personen des eigenen Werks (Standard für `viewer` und `editor`) |
+  | `gesellschaft` | alle mit derselben E-Mail-Domäne |
+  | `alle` | keine Einschränkung (Standard für `admin`) |
+
+  Die Führungskraft wird immer gezeigt, auch werksübergreifend – sonst bliebe die Karte bei
+  Werksleitungen leer. Ist am Konto kein `companyName` hinterlegt, wird nicht eingeschränkt;
+  die Karte sagt das dazu, ebenso wie die Zahl der ausgeblendeten Personen.
 * Darunter erscheinen die zuletzt geänderten Seiten der Intranet-Root-Site
   (`dihag.sharepoint.com`) als „Neues aus der DIHAG“.
 * Kacheln verlinken auf Intranet-Seiten, Timebutler und die übrigen DIHAG-Apps.

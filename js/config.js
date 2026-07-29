@@ -63,6 +63,20 @@ const RUDJ_CONFIG = {
     newsCount: 4
   },
 
+  /* ── Sichtbarkeit der Personendaten („Mein Umfeld“) ───────────────
+     Wie weit darf jemand ins Verzeichnis schauen? Das Werk kommt – wie im
+     Organigramm – aus dem Entra-Feld `companyName`.
+       werk         = nur Personen des eigenen Werks
+       gesellschaft = alle mit derselben E-Mail-Domäne
+       alle         = keine Einschränkung
+     Die Führungskraft wird immer gezeigt, auch werksübergreifend, sonst
+     stünde die Karte bei Werksleitungen leer. */
+  orgScope: {
+    viewer: "werk",
+    editor: "werk",
+    admin:  "alle"
+  },
+
   /* ── Verlinkte Schwester-Apps ─────────────────────────────────────── */
   orgchartUrl: "https://dfedorov12.github.io/orgchart-/",
   adminUrl:    "https://dfedorov12.github.io/admin/",

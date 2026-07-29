@@ -631,3 +631,40 @@ Konto nicht lesbar; auf `/sites/IT` greift die Rolle sofort.
 **Verifikation:** `node --check` 8/8, impexp 50/50, fieldmap 13/13. Browser: Normalfall –
 Knopf entfernt, Erklärungszeile ausgeblendet, Rolle `admin` in der Karte; Fehlerfall (403 auf
 die Rechteliste) – rote Zeile mit der Graph-Meldung erscheint weiterhin. Konsole fehlerfrei.
+
+## 2026-07-28 (15): Kontaktdaten aufklappbar, Verzeichnis nach Werk eingeschränkt
+
+**Denis:** „mit klick auf führungskraft sollen nur die infos angezeigt werden mit mail,
+telefonnummer und co. also nur beim draufklicken klappt es informationen aus ; organigramm
+soll anzeigbar nach berechtigungen sein, am besten nach werk“
+
+**Werk = `companyName`** – dieselbe Quelle wie im Orgchart (dort `selWerk`/`u.companyName`),
+damit beide Apps dasselbe meinen.
+
+- `js/app.js`: Neue Funktion `person(p, meinWerk)` ersetzt den früheren reinen
+  `mailto`-Link. Die Zeile ist jetzt anklappbar (`data-person`, `tabindex`, Chevron); darunter
+  eine `.person-det`-Box mit E-Mail (mailto), Telefon/Mobil (tel-Links), Position, Abteilung,
+  Werk und Standort. Es ist immer nur eine Person offen; erneuter Klick schließt. Fehlen
+  Kontaktdaten, steht das ausdrücklich da statt einer leeren Box.
+  `$select` um `officeLocation,companyName,mobilePhone,businessPhones` erweitert.
+- `js/data.js`: `/me` liest zusätzlich `companyName`; die Profilkarte zeigt eine Zeile **Werk**.
+- `js/config.js`: neuer Block `orgScope` je Rolle – `viewer`/`editor` → `werk`,
+  `admin` → `alle`; zusätzlich möglich `gesellschaft` (E-Mail-Domäne). Die Führungskraft wird
+  bewusst immer gezeigt, sonst bliebe die Karte bei Werksleitungen leer. Ohne `companyName`
+  am eigenen Konto wird nicht gefiltert – mit sichtbarem Hinweis, statt still alles zu zeigen.
+- `css/styles.css`: `.person` als Schaltfläche (Cursor, Fokusring, Chevron mit Drehung),
+  `.person-det` als eingerückte Box.
+- `README.md`: Abschnitt zur Orgchart-Anbindung um beides ergänzt, inkl. Tabelle der
+  `orgScope`-Werte.
+
+**Verifikation:** `node --check` 8/8, impexp 50/50, fieldmap 13/13. Browser:
+- Aufklappen: alle Details anfangs zu; Klick auf „Maria Beispiel“ zeigt E-Mail als
+  mailto-Link, **2** tel-Links (Mobil + Festnetz), Position, Abteilung, Werk, Standort;
+  Klick auf eine zweite Person schließt die erste; erneuter Klick schließt.
+  Person ohne Kontaktdaten zeigt „Keine Kontaktdaten hinterlegt.“
+- Werk: als `admin` (Scope `alle`) alle vier Personen und Hinweis „Alle Werke sichtbar“;
+  als `viewer` (Scope `werk`, eigenes Werk „DIHAG Holding“) verschwindet die Kollegin aus
+  Gienanth, Hinweis „Eingeschränkt auf Ihr Werk DIHAG Holding. 1 Person(en) aus anderen
+  Werken ausgeblendet.“; ohne `companyName` am eigenen Konto keine Einschränkung samt
+  passendem Hinweis.
+Konsole fehlerfrei.

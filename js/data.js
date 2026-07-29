@@ -52,7 +52,8 @@ const DATA = (() => {
   /* ── Benutzer + Rolle ────────────────────────────────────────────── */
 
   async function loadUser() {
-    const me = await GRAPH.call("/me?$select=displayName,mail,userPrincipalName,jobTitle,department,officeLocation,mobilePhone,businessPhones");
+    const me = await GRAPH.call("/me?$select=displayName,mail,userPrincipalName,jobTitle,"
+      + "department,officeLocation,mobilePhone,businessPhones,companyName");
     ctx.me = me;
     ctx.email = (me.mail || me.userPrincipalName || "").toLowerCase();
     ctx.name = me.displayName || ctx.email;
