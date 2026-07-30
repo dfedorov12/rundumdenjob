@@ -9,11 +9,15 @@ const SRC = readFileSync(new URL("../js/impexp.js", import.meta.url), "utf8");
 /* Nur die Abhängigkeiten stellen, die beim Laden gebraucht werden. */
 const sandbox = {
   console,
-  document: { getElementById: () => null, createElement: () => ({ style: {} }) },
+  // Der Gruppenfilter haengt an einer Checkbox; nur die wird nachgebildet.
+  document: {
+    getElementById: id => (id === "ieNurGruppe" ? { checked: sandbox.__gruppe } : null),
+    createElement: () => ({ style: {} })
+  },
   RUDJ_CONFIG: { configSite: "x", lists: {}, scopes: [] },
   APP: { esc: s => String(s ?? ""), toast: () => {} },
   AUTH: { tokenInfo: () => ({ scopes: sandbox.__scopes }) },
-  __scopes: [],
+  __scopes: [], __gruppe: false,
   GRAPH: {}, DATA: { domainOf: a => String(a).split("@")[1] || "" }, SEED: { EXPECTED: {} },
   // impexp.js registriert sich am Ende als Unterreiter der Einstellungen
   SETTINGS_VIEWS: {},
@@ -172,6 +176,23 @@ check("Mit beiden Scopes ist nichts offen",
   IE.fehlendeZusatzrechte(["lastSignIn", "employeeLeaveDateTime", "groups"]).length === 0);
 check("Gruppen brauchen kein Zusatzrecht (nur mehr Aufrufe)",
   !IE.FIELDS.find(f => f.key === "groups").perm);
+
+// Der Gruppenfilter haengt nicht an einem Feld, sondern am Haken: ohne
+// GroupMember.Read.All im Token antwortet /groups mit 403.
+sandbox.__gruppe = true;
+sandbox.__scopes = ["User.Read", "User.Read.All"];
+check("Eingeschalteter Gruppenfilter verlangt GroupMember.Read.All",
+  IE.fehlendeZusatzrechte(["department"]).includes("GroupMember.Read.All"),
+  JSON.stringify(IE.fehlendeZusatzrechte(["department"])));
+sandbox.__scopes = ["User.Read", "User.Read.All", "GroupMember.Read.All"];
+check("Mit GroupMember im Token fehlt für den Gruppenfilter nichts",
+  IE.fehlendeZusatzrechte(["department"]).length === 0,
+  JSON.stringify(IE.fehlendeZusatzrechte(["department"])));
+sandbox.__gruppe = false;
+sandbox.__scopes = ["User.Read", "User.Read.All"];
+check("Ausgeschalteter Gruppenfilter verlangt es nicht",
+  !IE.fehlendeZusatzrechte(["department"]).includes("GroupMember.Read.All"),
+  JSON.stringify(IE.fehlendeZusatzrechte(["department"])));
 
 /* ── Ausgabe ──────────────────────────────────────────────────────── */
 

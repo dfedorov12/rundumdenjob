@@ -196,7 +196,10 @@ festgehalten (Zeitpunkt, Konto, Aktion, Vorlage, Anzahl, Felder, gesetzte Filter
 oder scheitert der Eintrag, läuft der Vorgang trotzdem durch.
 
 Manche Felder brauchen zusätzliche Berechtigungen: **Letzte Anmeldung** verlangt
-`AuditLog.Read.All`, **Austrittsdatum** `User-LifeCycleInfo.Read.All`.
+`AuditLog.Read.All`, **Austrittsdatum** `User-LifeCycleInfo.Read.All`. Auch der
+**Gruppenfilter** braucht eines – `GroupMember.Read.All` –, denn ohne es antwortet
+`GET /groups` mit `403 Authorization_RequestDenied`. Es hängt an keinem Feld, sondern am
+Haken selbst: der Hinweis erscheint, sobald der Filter eingeschaltet wird.
 
 > **Wichtig:** In Entra *erteilte* Berechtigungen wirken erst, wenn die Anmeldung sie auch
 > **anfordert**. Sonst fehlen sie im Zugriffstoken und Graph antwortet mit
@@ -208,7 +211,9 @@ sonst in jedem Token jeder Anmeldung landen würden. Sind sie für die gewählte
 und nicht im Token, zeigt die Export-Karte einen Hinweis mit dem Knopf
 **🔐 Zusatzrechte anfordern**; der holt sie still nach (`prompt=none`, bei bereits erteilter
 Zustimmung ohne jede Rückfrage). Bis dahin wird der Abruf automatisch ohne diese Felder
-wiederholt – die Spalte bleibt leer, statt dass der ganze Export scheitert.
+wiederholt – die Spalte bleibt leer, statt dass der ganze Export scheitert. Beim
+Gruppenfilter ist die Folge eine andere, und der Hinweis sagt das auch so: Der Export
+läuft dann **ohne** Gruppenfilter, also über alle Konten der gewählten Domäne.
 
 Welche optionalen Berechtigungen im aktuellen Token stecken, zeigt
 *Einstellungen → 🩺 Diagnose → 🔍 Diagnose starten*.

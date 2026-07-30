@@ -730,7 +730,30 @@ und optional nur Mitglieder einer Gruppe, vorbelegt `dihag_intern@dihag.com`. Tr
 Mitglieder, verschachtelte Gruppen zählen mit; unbekannte Gruppe wird benannt und der Filter
 übersprungen statt zu viel zu exportieren.
 
-**Stand:** `node --check` 13/13 Dateien, Tests 21 + 50 + 150 = **221 Prüfungen grün**, CI grün,
+**Nachtrag · der Gruppenfilter brauchte selbst ein Recht.** Erster Versuch im Tenant:
+`GET /groups?$filter=mail eq 'dihag_intern@dihag.com'` → `403 Authorization_RequestDenied`.
+Ursache dieselbe wie beim Austrittsdatum – `GroupMember.Read.All` steckte nicht im Token.
+Nur hing sie an keinem Feld, sondern am Haken, deshalb:
+`fehlendeZusatzrechte()` fragt jetzt zusätzlich `#ieNurGruppe` ab, der Haken löst ein
+Neuzeichnen aus (`gruppeAktiv` überlebt es), der Knopf **🔐 Zusatzrechte anfordern** fordert
+sie mit an, und bei einem 403 erklärt `gruppenRechtHinweis()` im Protokoll den Unterschied
+zwischen „in Entra erteilt“ und „im Token“.
+
+Zwei Formulierungen dabei nachgezogen, weil sie sonst falsches versprachen: der Hinweis kannte
+nur Feldnamen und lautete deshalb „Für ␣ fehlt im Zugriffstoken …“, und „Ohne sie bleiben nur diese Spalten leer“ – beim
+Gruppenfilter bleibt keine Spalte leer, sondern der Filter entfällt. Der Satz wird jetzt aus
+beiden Teilen gebaut; alle vier Fälle im Browser durchgespielt (nur Gruppenrecht fehlt / nur
+Feldrecht / beides / alles da).
+
+**Eigener Fehler zweimal derselbe – zu grob geprüft:** „Banner noch da“ stammte beide Male von
+meinem Selektor `#setBody .card .warn`, der auch den Hinweis der *Import*-Karte auf das
+fehlende `User.ReadWrite.All` traf. Kartenscharf geprüft ist die Export-Karte leer, sobald das
+Recht im Token steht. Ebenso hatte ein Reload nicht gegriffen, weil `navigate` nur den Origin
+setzte und ein nachgeladenes `impexp.js` an der Doppeldeklaration von `const IMPEXP` scheiterte
+– die Seite lief also weiter mit dem alten Code und zeigte „unverändert“ an. Lehre für beide:
+prüfen, dass das Prüfmittel wirklich das Neue misst, bevor ich dem Ergebnis glaube.
+
+**Stand:** `node --check` 13/13 Dateien, Tests 21 + 53 + 150 = **224 Prüfungen grün**, CI grün,
 Konsole fehlerfrei. Commits bb1e5c1, d728516, 3a4f356, 6fc3688, 15957d0, 5749dda, e74c56a.
 
 **Neu anzulegen (optional, App läuft ohne):** `RUDJ_Einstellungen` und `RUDJ_Protokoll` –

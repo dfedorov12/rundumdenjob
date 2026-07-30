@@ -20,6 +20,9 @@ const IMPEXP = (() => {
 
   const WRITE_SCOPE = "User.ReadWrite.All";
   const LIFECYCLE_SCOPE = "User-LifeCycleInfo.ReadWrite.All";
+  // Gruppen lesen und ihre Mitglieder auflisten. GroupMember.Read.All ist die
+  // engere der beiden Moeglichkeiten (Group.Read.All wuerde auch reichen).
+  const GROUP_SCOPE = "GroupMember.Read.All";
 
   /* ── Feldkatalog ───────────────────────────────────────────────────
      graph = Name im $select von /users (leer = wird eigens aufgelöst)
@@ -91,6 +94,7 @@ const IMPEXP = (() => {
   let vorlage = "on";
   let importZeilen = null;   // geparste Datei
   let importPlan   = null;   // ausgewerteter Abgleich
+  let gruppeAktiv  = false;  // Gruppenfilter eingeschaltet?
 
   const tokenScopes = () => AUTH.tokenInfo()?.scopes || [];
   const hatSchreibrecht = () => tokenScopes().includes(WRITE_SCOPE);
@@ -107,6 +111,8 @@ const IMPEXP = (() => {
     const da = tokenScopes();
     const noetig = new Set(
       keys.map(byKey).filter(f => f && f.perm).map(f => f.perm));
+    // Der Gruppenfilter ist kein Feld, braucht aber ebenfalls ein Zusatzrecht.
+    if ($("ieNurGruppe")?.checked) noetig.add(GROUP_SCOPE);
     return [...noetig].filter(s => !da.includes(s));
   }
 
@@ -223,6 +229,7 @@ const IMPEXP = (() => {
       g = (r.value || [])[0];
     } catch (e) {
       log("⚠ Gruppe nicht auflösbar: " + (e.detail || e.message));
+      if (e.status === 403) gruppenRechtHinweis(log);
       _gruppenCache.set(key, null);
       return null;
     }
@@ -236,12 +243,25 @@ const IMPEXP = (() => {
       for (const u of m) if (u.id) ids.add(u.id);
     } catch (e) {
       log("⚠ Mitglieder nicht lesbar: " + (e.detail || e.message));
+      if (e.status === 403) gruppenRechtHinweis(log);
       _gruppenCache.set(key, null);
       return null;
     }
     log(`· Gruppe „${g.displayName || mailOderName}": ${ids.size} Mitglieder.`);
     _gruppenCache.set(key, ids);
     return ids;
+  }
+
+  /** Erklaert den 403 auf /groups. Gleiche Ursache wie bei AuditLog.Read.All:
+   *  in Entra erteilt heisst nicht im Token. */
+  function gruppenRechtHinweis(log) {
+    log("");
+    log("  Der Gruppenfilter braucht " + GROUP_SCOPE + " (oder Group.Read.All).");
+    log("  Wie bei den anderen Zusatzrechten gilt: in Entra erteilt reicht nicht –");
+    log("  die Anmeldung muss die Berechtigung auch anfordern, sonst steht sie");
+    log("  nicht im Token. Der Knopf 'Zusatzrechte anfordern' oben in dieser Karte holt sie.");
+    log("  Ohne das Recht wird ohne Gruppenfilter exportiert – die Zeilenzahl oben");
+    log("  sagt, wie viele Konten tatsaechlich enthalten sind.");
   }
 
   /* ── Export ──────────────────────────────────────────────────────── */
@@ -750,7 +770,8 @@ const IMPEXP = (() => {
         </div>
         <div class="row" style="margin-bottom:14px">
           <label class="chk"><input type="checkbox" id="ieNurGruppe"
-            ${C.exportGruppe ? "" : "disabled"}> nur Mitglieder der Gruppe</label>
+            ${gruppeAktiv ? "checked" : ""}${C.exportGruppe ? "" : " disabled"}>
+            nur Mitglieder der Gruppe</label>
           <input type="text" id="ieGruppe" style="max-width:280px"
                  value="${esc(C.exportGruppe || "")}"
                  placeholder="E-Mail oder Anzeigename der Gruppe">
@@ -763,14 +784,24 @@ const IMPEXP = (() => {
         ${(() => {
           const fehlt = fehlendeZusatzrechte();
           if (!fehlt.length) return "";
-          const felder = FIELDS.filter(f => auswahl.has(f.key) && fehlt.includes(f.perm))
+          // Wofür genau? Felder haben ein `perm`, der Gruppenfilter hängt an
+          // keinem Feld – ohne diesen Zusatz stünde dort „Für  fehlt …“.
+          const spalten = FIELDS.filter(f => auswahl.has(f.key) && fehlt.includes(f.perm))
             .map(f => f.label);
-          return `<div class="warn">Für <b>${felder.map(esc).join(", ")}</b> fehlt im
+          const gruppe = fehlt.includes(GROUP_SCOPE);
+          const wofuer = gruppe ? spalten.concat("den Gruppenfilter") : spalten;
+          // Die Folge unterscheidet sich: fehlende Feldrechte lassen Spalten leer,
+          // ein fehlendes Gruppenrecht laesst den Filter ganz entfallen.
+          const folge = [
+            spalten.length ? "bleiben diese Spalten leer" : "",
+            gruppe ? "wird ohne Gruppenfilter exportiert" : ""
+          ].filter(Boolean).join(" und es ");
+          return `<div class="warn">Für <b>${wofuer.map(esc).join("</b>, <b>")}</b> fehlt im
             Zugriffstoken: <b>${fehlt.map(esc).join(", ")}</b>.
             <div style="margin-top:6px">In Entra erteilte Berechtigungen wirken erst, wenn die
             Anmeldung sie auch anfordert – sonst antwortet Graph mit
-            <i>„The principal does not have required permission(s)“</i>. Ohne sie bleiben nur
-            diese Spalten leer, der übrige Export läuft.</div>
+            <i>„The principal does not have required permission(s)“</i>. Ohne sie
+            ${folge} – der Export läuft trotzdem durch.</div>
             <div class="row" style="margin-top:10px">
               <button class="btn warn-btn sm" id="ieGrantRead">🔐 Zusatzrechte anfordern</button>
             </div></div>`;
@@ -874,6 +905,15 @@ const IMPEXP = (() => {
     host.querySelectorAll("[data-fld]").forEach(i => i.onchange = () => {
       if (i.checked) auswahl.add(i.dataset.fld); else auswahl.delete(i.dataset.fld);
     });
+    // Neu zeichnen, damit der Hinweis auf das fehlende Gruppenrecht erscheint
+    // bzw. verschwindet.
+    const gr = $("ieNurGruppe");
+    if (gr) gr.onchange = () => {
+      const merk = $("ieGruppe")?.value;
+      gruppeAktiv = gr.checked;
+      render(host);
+      if (merk !== undefined && $("ieGruppe")) $("ieGruppe").value = merk;
+    };
 
     $("ieCsv").onclick  = e => lauf(e.target, () => { reset(); return exportieren("csv", log); });
     $("ieJson").onclick = e => lauf(e.target, () => { reset(); return exportieren("json", log); });
