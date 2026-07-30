@@ -70,7 +70,9 @@ const TESTDB = {
     ["extern-partner.com","Extern-partner","EXT",false],["nichtmehr.de","Nichtmehr","NIC",false]
   ].map((a,i) => ({ id: "g"+i, Title: a[0], Gesellschaft: a[1], Kuerzel: a[2],
                     Farbe: "#17509E", Standard: a[3], Aktiv: true, Sortierung: (i+1)*10 })),
-  reiter: [], kacheln: [], einstellungen: [],
+  reiter: [], kacheln: [], einstellungen: [], protokoll: [],
+  gruppen: [{ id:"g-int", displayName:"DIHAG intern", mail:"dihag_intern@dihag.com",
+              mitglieder:["u1","u3"] }],
   denyWrite: false, typ2: false, auditRecht: true, loginCalls: [], meinWerk: "DIHAG Holding",
   patches: [], managerCalls: [],
   users: [
@@ -167,6 +169,17 @@ const GRAPH = {
         return c;
       })};
     }
+    if (path.startsWith("/groups?")) {
+      const f = /(?:mail|displayName) eq '([^']+)'/.exec(path);
+      const t = TESTDB.gruppen.find(g =>
+        g.mail === (f && f[1]) || g.displayName === (f && f[1]));
+      return { value: t ? [{ id: t.id, displayName: t.displayName, mail: t.mail }] : [] };
+    }
+    const gm = /^\/groups\/([^/]+)\/transitiveMembers/.exec(path);
+    if (gm) {
+      const t = TESTDB.gruppen.find(g => g.id === gm[1]);
+      return { value: (t ? t.mitglieder : []).map(id => ({ id })) };
+    }
     if (path === "/subscribedSkus?$select=skuId,skuPartNumber")
       return { value: [{ skuId: "sku-e3", skuPartNumber: "ENTERPRISEPACK" }] };
     if (/^\/users\/[^/]+\/memberOf/.test(path))
@@ -232,6 +245,7 @@ const GRAPH = {
     if (name === RUDJ_CONFIG.lists.reiter)         return TESTDB.reiter;
     if (name === RUDJ_CONFIG.lists.kacheln)        return TESTDB.kacheln;
     if (name === RUDJ_CONFIG.einstellungenListe)   return TESTDB.einstellungenFehlt ? null : TESTDB.einstellungen;
+    if (name === RUDJ_CONFIG.protokollListe)       return TESTDB.protokollFehlt ? null : TESTDB.protokoll;
     if (name === RUDJ_CONFIG.permList)             return TESTDB.perms;
     return null;
   },
@@ -244,7 +258,11 @@ const GRAPH = {
                 [RUDJ_CONFIG.lists.reiter]: "reiter",
                 [RUDJ_CONFIG.lists.kacheln]: "kacheln",
                 [RUDJ_CONFIG.einstellungenListe]: "einstellungen",
+                [RUDJ_CONFIG.protokollListe]: "protokoll",
                 [RUDJ_CONFIG.permList]: "perms" }[name];
+    if (!t) throw GERR("POST " + name, 404, "itemNotFound", "Liste fehlt");
+    if (name === RUDJ_CONFIG.protokollListe && TESTDB.protokollFehlt)
+      throw GERR("POST " + name, 404, "itemNotFound", "Liste fehlt");
     TESTDB[t].push(row); return row;
   },
   async updateItem(site, name, id, f) {

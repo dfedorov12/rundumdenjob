@@ -183,8 +183,17 @@ Semikolon, UTF-8 mit BOM, CRLF) oder JSON herunter. Drei Vorlagen wählen die Fe
 | 🚪 **Offboarding** | Was beim Austritt zu prüfen ist – Kontostatus, Austrittsdatum, Lizenzen, Gruppen, letzte Anmeldung, Führungskraft |
 | 📦 **Migration** | Alle verfügbaren Felder |
 
-Die Feldliste lässt sich frei anpassen. Filter: nur aktive Konten, Gastkonten einbeziehen,
-nur die unter *Gesellschaften & Domänen* gepflegten Domänen.
+Die Feldliste lässt sich frei anpassen. **Filter:** nur aktive Konten, Gastkonten einbeziehen,
+eine bestimmte **Domäne** (oder alle gepflegten) und optional nur **Mitglieder einer Gruppe**
+– vorbelegt mit `dihag_intern@dihag.com` (`RUDJ_CONFIG.exportGruppe`). Der Gruppenfilter liest
+die *transitiven* Mitglieder, verschachtelte Gruppen zählen also mit. Wird die Gruppe nicht
+gefunden, sagt das Protokoll es und der Filter wird übersprungen – es wird nie stillschweigend
+zu viel exportiert.
+
+**Protokoll.** Jeder Export und Import wird in der optionalen Liste `RUDJ_Protokoll`
+festgehalten (Zeitpunkt, Konto, Aktion, Vorlage, Anzahl, Felder, gesetzte Filter) – für ISO
+27001 und die DSGVO-Rechenschaftspflicht. Nur Metadaten, keine Personendaten. Fehlt die Liste
+oder scheitert der Eintrag, läuft der Vorgang trotzdem durch.
 
 Manche Felder brauchen zusätzliche Berechtigungen: **Letzte Anmeldung** verlangt
 `AuditLog.Read.All`, **Austrittsdatum** `User-LifeCycleInfo.Read.All`.
@@ -216,6 +225,9 @@ sowohl als deutsche Bezeichnung („Abteilung") als auch als technischer Schlüs
 * Datumsangaben in `TT.MM.JJJJ` oder `JJJJ-MM-TT`; Mehrfachwerte mit `|`, `;` oder `,`.
 * *🔍 Prüfen* ändert nichts und zeigt eine Vorschau **vorher → nachher** je Konto und Feld.
 * Erst *⬆️ Änderungen übernehmen* schreibt, nach einer Bestätigung mit Anzahl.
+* **Vor** der ersten Änderung lädt die App automatisch eine CSV mit dem Ist-Zustand der
+  betroffenen Konten und Felder herunter. Graph kennt kein Rückgängig – diese Datei ist der
+  Rückweg und lässt sich unverändert wieder importieren.
 * Fehlgeschlagene Zeilen werden als CSV heruntergeladen.
 
 Bewusst **nicht** möglich: Konten anlegen, Kennwörter setzen, Anmeldename oder E-Mail ändern,

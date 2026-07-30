@@ -40,6 +40,16 @@ const RUDJ_CONFIG = {
   // (derzeit orgScope). Fehlt sie, gelten die Vorgaben aus dieser Datei.
   einstellungenListe: "RUDJ_Einstellungen",
 
+  // Optionale Liste: protokolliert Exporte und Importe personenbezogener Daten
+  // (ISO 27001 / DSGVO-Rechenschaftspflicht). Fehlt sie, laeuft alles weiter,
+  // nur ohne Protokoll - ein fehlgeschlagener Protokolleintrag darf niemals
+  // den eigentlichen Vorgang verhindern.
+  protokollListe: "RUDJ_Protokoll",
+
+  // Vorbelegung des Gruppenfilters im Import/Export. Leer lassen, wenn es
+  // keine sinnvolle Standardgruppe gibt.
+  exportGruppe: "dihag_intern@dihag.com",
+
   /* ── SharePoint: zentrale Rechteliste ─────────────────────────────
      Liegt auf derselben Site wie die Konfigurationslisten. Vorher
      /sites/ticket – dort konnten normale Konten die Liste nicht lesen,

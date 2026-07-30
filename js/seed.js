@@ -55,6 +55,15 @@ const SEED = (() => {
       // Title = Schluessel, z. B. "orgScope.viewer"
       G.colText("Wert", 255),
       G.colNote("Hinweis")
+    ],
+    protokoll: [
+      // Title = Zeitpunkt (ISO), damit die Liste von sich aus sortierbar ist
+      G.colText("Konto"),
+      G.colText("Aktion", 40),
+      G.colText("Vorlage", 40),
+      G.colNum("Anzahl"),
+      G.colNote("Felder"),
+      G.colNote("Details")
     ]
   };
 
@@ -64,7 +73,8 @@ const SEED = (() => {
     reiter:         ["Title", "ReiterKey", "Icon", "Beschreibung", "Domains", "MinRolle", "Aktiv", "Sortierung"],
     kacheln:        ["Title", "ReiterKey", "Typ", "Icon", "Beschreibung", "Url", "Inhalt", "Badge",
                      "Domains", "MinRolle", "Aktiv", "Sortierung", "GueltigVon", "GueltigBis"],
-    einstellungen:  ["Title", "Wert", "Hinweis"]
+    einstellungen:  ["Title", "Wert", "Hinweis"],
+    protokoll:      ["Title", "Konto", "Aktion", "Vorlage", "Anzahl", "Felder", "Details"]
   };
 
   /* ── Startinhalte ────────────────────────────────────────────────── */

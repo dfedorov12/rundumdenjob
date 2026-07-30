@@ -177,6 +177,73 @@ const IMPEXP = (() => {
 
   const heute = () => new Date().toISOString().slice(0, 10);
 
+  /* ── Protokoll ───────────────────────────────────────────────────────
+     Exporte und Importe personenbezogener Daten werden mitgeschrieben
+     (ISO 27001, DSGVO-Rechenschaftspflicht). Die Liste ist optional: fehlt
+     sie oder scheitert der Eintrag, laeuft der Vorgang trotzdem weiter -
+     ein Protokoll darf die eigentliche Arbeit nicht blockieren. */
+
+  async function protokoll(aktion, daten = {}) {
+    if (!C.protokollListe) return;
+    try {
+      await GRAPH.addItem(C.configSite, C.protokollListe, {
+        Title:    new Date().toISOString(),
+        Konto:    DATA.ctx.email,
+        Aktion:   aktion,
+        Vorlage:  daten.vorlage || "",
+        Anzahl:   typeof daten.anzahl === "number" ? daten.anzahl : null,
+        Felder:   (daten.felder || []).join(", "),
+        Details:  daten.details || ""
+      });
+    } catch (e) {
+      // bewusst nur in die Konsole - der Vorgang ist wichtiger als sein Protokoll
+      console.warn("[Protokoll]", e.detail || e.message);
+    }
+  }
+
+  /* ── Gruppenfilter ───────────────────────────────────────────────────
+     Auf Wunsch nur Mitglieder einer Gruppe exportieren, z. B. der internen
+     Verteilergruppe. Es werden transitive Mitglieder gelesen, damit auch
+     verschachtelte Gruppen zaehlen. */
+
+  const _gruppenCache = new Map();
+
+  /** @returns {Promise<Set<string>|null>} Objekt-IDs der Mitglieder, null wenn
+   *  die Gruppe nicht gefunden wurde. */
+  async function gruppenMitglieder(mailOderName, log = () => {}) {
+    const key = String(mailOderName || "").trim().toLowerCase();
+    if (!key) return null;
+    if (_gruppenCache.has(key)) return _gruppenCache.get(key);
+
+    const q = key.replace(/'/g, "''");
+    let g = null;
+    try {
+      const r = await GRAPH.call("/groups?$select=id,displayName,mail"
+        + `&$filter=mail eq '${q}' or displayName eq '${q}'`);
+      g = (r.value || [])[0];
+    } catch (e) {
+      log("⚠ Gruppe nicht auflösbar: " + (e.detail || e.message));
+      _gruppenCache.set(key, null);
+      return null;
+    }
+    if (!g) { log(`⚠ Gruppe „${mailOderName}" nicht gefunden – Filter wird übersprungen.`); 
+      _gruppenCache.set(key, null); return null; }
+
+    const ids = new Set();
+    try {
+      const m = await GRAPH.callAll(
+        `/groups/${g.id}/transitiveMembers/microsoft.graph.user?$select=id&$top=999`, 40);
+      for (const u of m) if (u.id) ids.add(u.id);
+    } catch (e) {
+      log("⚠ Mitglieder nicht lesbar: " + (e.detail || e.message));
+      _gruppenCache.set(key, null);
+      return null;
+    }
+    log(`· Gruppe „${g.displayName || mailOderName}": ${ids.size} Mitglieder.`);
+    _gruppenCache.set(key, ids);
+    return ids;
+  }
+
   /* ── Export ──────────────────────────────────────────────────────── */
 
   /** Holt die Benutzer mit den gewählten Feldern. Fällt automatisch zurück,
@@ -235,7 +302,16 @@ const IMPEXP = (() => {
       const vor = users.length;
       const set = new Set(opt.domains);
       users = users.filter(u => set.has(DATA.domainOf(u.mail || u.userPrincipalName)));
-      log("· Domänenfilter: " + users.length + " von " + vor + " Konten übrig.");
+      log("· Domänenfilter (" + opt.domains.join(", ") + "): "
+        + users.length + " von " + vor + " Konten übrig.");
+    }
+    if (opt.gruppe) {
+      const ids = await gruppenMitglieder(opt.gruppe, log);
+      if (ids) {
+        const vor = users.length;
+        users = users.filter(u => ids.has(u.id));
+        log("· Gruppenfilter: " + users.length + " von " + vor + " Konten übrig.");
+      }
     }
 
     // Lizenz-SKUs in lesbare Namen übersetzen
@@ -292,14 +368,7 @@ const IMPEXP = (() => {
   async function exportieren(format, log) {
     const keys = FIELDS.filter(f => auswahl.has(f.key)).map(f => f.key);
     if (!keys.length) { APP.toast("Bitte mindestens ein Feld wählen.", true); return; }
-    const opt = {
-      nurAktiv: $("ieNurAktiv").checked,
-      gaeste:   $("ieGaeste").checked,
-      domains:  $("ieNurDomains").checked
-        ? DATA.cfg.gesellschaften.filter(g => g.Aktiv !== false)
-            .map(g => String(g.Title || "").toLowerCase())
-        : []
-    };
+    const opt = leseFilter();
     const zeilen = await ladeBenutzer(keys, opt, log);
     const kopf = keys.map(k => byKey(k).label);
     const name = `entra-${vorlage}-${heute()}`;
@@ -311,6 +380,28 @@ const IMPEXP = (() => {
       download(name + ".csv", toCsv(kopf, zeilen));
     }
     log("✓ " + zeilen.length + " Zeilen als " + format.toUpperCase() + " heruntergeladen.");
+    await protokoll("Export", {
+      vorlage: vorlage, anzahl: zeilen.length, felder: kopf,
+      details: `Format ${format.toUpperCase()}`
+        + (opt.nurAktiv ? ", nur aktive" : "")
+        + (opt.gaeste ? ", mit Gästen" : "")
+        + (opt.domains.length ? ", nur gepflegte Domänen" : "")
+    });
+  }
+
+  /** Filtereinstellungen aus der Oberfläche. */
+  function leseFilter() {
+    const dom = $("ieDomain")?.value || "";
+    return {
+      nurAktiv: $("ieNurAktiv").checked,
+      gaeste:   $("ieGaeste").checked,
+      domains:  dom === "" ? []
+                : dom === "__alle_gepflegten"
+                  ? DATA.cfg.gesellschaften.filter(g => g.Aktiv !== false)
+                      .map(g => String(g.Title || "").toLowerCase())
+                  : [dom],
+      gruppe:   $("ieNurGruppe")?.checked ? ($("ieGruppe")?.value || "").trim() : ""
+    };
   }
 
   /* ── Import: Datei auswerten ─────────────────────────────────────── */
@@ -437,11 +528,30 @@ const IMPEXP = (() => {
 
   /* ── Import: ausführen ───────────────────────────────────────────── */
 
+  /** Ist-Zustand der betroffenen Konten und Felder als CSV sichern, damit ein
+   *  fehlerhafter Import rueckgaengig gemacht werden kann. Es gibt keine
+   *  Undo-Funktion in Graph - diese Datei ist der Rueckweg. */
+  function sicherungErzeugen(plan) {
+    const felder = ["userPrincipalName", ...plan.felder];
+    const kopf = felder.map(k => byKey(k).label);
+    const zeilen = plan.aenderungen.map(({ user }) =>
+      felder.map(k => k === "userPrincipalName" ? user.userPrincipalName : istWert(k, user)));
+    const name = `import-sicherung-${heute()}-${new Date().toTimeString().slice(0, 5).replace(":", "")}.csv`;
+    download(name, toCsv(kopf, zeilen));
+    return { name, zeilen: zeilen.length };
+  }
+
   async function importAusfuehren(log) {
     if (!importPlan?.aenderungen.length) { APP.toast("Nichts zu übernehmen.", true); return; }
     const mitStatus = $("ieMitStatus")?.checked;
     const fehler = [];
     let ok = 0;
+
+    // Zuerst die Sicherung – vor der ersten Änderung, nicht danach
+    const sich = sicherungErzeugen(importPlan);
+    log("");
+    log("Sicherung des Ist-Zustands heruntergeladen: " + sich.name
+      + " (" + sich.zeilen + " Konten)");
 
     log("");
     log("── Übernahme ──────────────────────────");
@@ -467,6 +577,12 @@ const IMPEXP = (() => {
     }
     log("");
     log("Fertig: " + ok + " aktualisiert, " + fehler.length + " Fehler.");
+    await protokoll("Import", {
+      vorlage: "Aktualisierung", anzahl: ok, felder: importPlan.felder,
+      details: `${fehler.length} Fehler, Abgleich über ${byKey(importPlan.schluessel).label}`
+        + (mitStatus ? ", inkl. Kontostatus" : "")
+        + `, Sicherung ${sich.name}`
+    });
     if (fehler.length) {
       download("import-fehler-" + heute() + ".csv",
         toCsv(["Anmeldename", "Fehler"], fehler.map(f => [f.upn, f.fehler])));
@@ -614,11 +730,35 @@ const IMPEXP = (() => {
           </div>
         </div>
 
-        <div class="row" style="margin-bottom:14px">
+        <label class="f">Filter</label>
+        <div class="row" style="margin-bottom:10px">
           <label class="chk"><input type="checkbox" id="ieNurAktiv"> nur aktive Konten</label>
           <label class="chk"><input type="checkbox" id="ieGaeste"> Gastkonten einbeziehen</label>
-          <label class="chk"><input type="checkbox" id="ieNurDomains"> nur gepflegte Domänen</label>
         </div>
+        <div class="row" style="margin-bottom:10px">
+          <label class="chk" style="gap:8px">Domäne
+            <select id="ieDomain" style="width:auto">
+              <option value="">alle Domänen</option>
+              <option value="__alle_gepflegten">nur gepflegte Domänen</option>
+              ${DATA.cfg.gesellschaften.filter(g => g.Aktiv !== false).map(g => {
+                const d = String(g.Title || "").toLowerCase();
+                return `<option value="${esc(d)}">@${esc(d)}${
+                  g.Gesellschaft ? " – " + esc(g.Gesellschaft) : ""}</option>`;
+              }).join("")}
+            </select>
+          </label>
+        </div>
+        <div class="row" style="margin-bottom:14px">
+          <label class="chk"><input type="checkbox" id="ieNurGruppe"
+            ${C.exportGruppe ? "" : "disabled"}> nur Mitglieder der Gruppe</label>
+          <input type="text" id="ieGruppe" style="max-width:280px"
+                 value="${esc(C.exportGruppe || "")}"
+                 placeholder="E-Mail oder Anzeigename der Gruppe">
+        </div>
+        <p class="hint" style="margin:0 0 14px">Der Gruppenfilter liest die
+          <b>transitiven</b> Mitglieder, verschachtelte Gruppen zählen also mit. Wird die
+          Gruppe nicht gefunden, sagt das Protokoll es und der Filter wird übersprungen –
+          es wird nie stillschweigend zu viel exportiert.</p>
 
         ${(() => {
           const fehlt = fehlendeZusatzrechte();
@@ -777,8 +917,9 @@ const IMPEXP = (() => {
             ? `<div class="warn">Davon werden <b>${deakt} Konten deaktiviert</b>.
                  Betroffene können sich danach nicht mehr anmelden.</div>` : ""}
           <p class="hint">Die Änderungen wirken sofort im ganzen Tenant. Eine
-            Rückgängig-Funktion gibt es nicht – idealerweise liegt ein Export von
-            vorher als Sicherung bereit.</p>`,
+            Rückgängig-Funktion gibt es nicht – deshalb wird <b>vor</b> der ersten Änderung
+            automatisch eine CSV mit dem heutigen Ist-Zustand der betroffenen Konten und
+            Felder heruntergeladen. Diese Datei ist der Rückweg.</p>`,
         onOk: async () => {
           await importAusfuehren(log);
           $("ieApply").disabled = true;

@@ -168,6 +168,28 @@ die Sichtbarkeit also nicht versehentlich aufreißen.
 
 ---
 
+## 6 · Liste `RUDJ_Protokoll` (optional)
+
+Protokolliert Exporte und Importe personenbezogener Daten – für ISO 27001 und die
+DSGVO-Rechenschaftspflicht. Fehlt die Liste, läuft alles normal weiter, nur ohne Protokoll:
+ein fehlgeschlagener Eintrag darf den eigentlichen Vorgang nie blockieren.
+
+**`Title` = Zeitpunkt** im ISO-Format, dadurch ist die Liste von sich aus sortierbar.
+
+| Spaltenname | Typ in SharePoint | Hinweis |
+|---|---|---|
+| `Konto` | Einzelne Textzeile | wer den Vorgang ausgelöst hat |
+| `Aktion` | Einzelne Textzeile | `Export` oder `Import` |
+| `Vorlage` | Einzelne Textzeile | `on` / `off` / `mig` bzw. `Aktualisierung` |
+| `Anzahl` | Zahl, 0 Dezimalstellen | betroffene Zeilen bzw. Konten |
+| `Felder` | Mehrere Textzeilen, **Nur Text** | welche Felder enthalten waren |
+| `Details` | Mehrere Textzeilen, **Nur Text** | Format, gesetzte Filter, Fehlerzahl, Name der Sicherungsdatei |
+
+> Nur Metadaten, **keine** Personendaten – es steht dort nicht, *wessen* Daten exportiert
+> wurden, sondern wer wann wie viele Zeilen mit welchen Feldern gezogen hat.
+
+---
+
 ## Berechtigungen auf den Listen
 
 Die App liest und schreibt als der angemeldete Benutzer. Damit reicht:
