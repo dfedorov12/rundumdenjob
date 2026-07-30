@@ -668,3 +668,70 @@ damit beide Apps dasselbe meinen.
   Werken ausgeblendet.“; ohne `companyName` am eigenen Konto keine Einschränkung samt
   passendem Hinweis.
 Konsole fehlerfrei.
+
+## 2026-07-30: Alle elf Optimierungen umgesetzt
+
+**Denis:** „ja, alles umsetzen" – die zehn Vorschläge aus der Analyse plus währenddessen
+„filterung im import export auf Domäne und folgende Gruppe: dihag_intern@dihag.com".
+
+**1 · Tastaturbedienung (Fehler, den ich selbst eingebaut hatte).** Die Personenzeile hatte
+`role="button"` und `tabindex="0"`, aber nur einen Klick-Handler – bei einem `div` löst Enter
+keinen Klick aus. Fokussieren ging, Aufklappen nicht. Jetzt `keydown` für Enter und Leertaste,
+dazu `aria-expanded` und `aria-label`.
+
+**2 · CI** (`.github/workflows/pruefung.yml`): `node --check` über `js/` und `tests/` plus die
+drei Suiten, bei jedem Push und PR. Hat sich sofort bezahlt – siehe Punkt 6.
+
+**3 · Test-Harness im Repo.** `_test.html` war per `.gitignore` nur lokal, die Browsertests
+also nicht reproduzierbar. Jetzt `tests/harness.html` mit `noindex` und sichtbarem Hinweis,
+dass alle Daten erfunden sind.
+
+**4 · Neuer Test `tests/test-konsistenz.mjs`** (150 Prüfungen): COLS gegen EXPECTED, die
+255-Zeichen-Grenze von SharePoint-Textspalten, Feldnamen ohne Leerzeichen/Umlaute,
+Startinhalte gegen das Schema, `index.html` lädt jede js-Datei in der richtigen Reihenfolge,
+Konfigurationswerte, und LISTEN-ANLEGEN.md nennt jede Spalte. Gegen eine eingebaute
+Regression geprüft (`Domains` auf 500 → Test schlägt fehl).
+
+**5 · Metadaten- und Rollen-Cache.** `graph.js` hielt Site-IDs, Listen-IDs und
+Spaltenzuordnung nur im Arbeitsspeicher, `loadRole` las die Rechteliste bei jedem
+Seitenaufruf: rund 21 Graph-Aufrufe je Kaltstart. Jetzt `sessionStorage` (12 h) mit
+gesammeltem Schreiben, Rolle 3 Minuten. Fehlerfälle werden bewusst **nicht** gecacht.
+**Eigener Fehler dabei:** `metaLeeren()` wies `_meta` neu zu, während `_siteIds` &Co.
+`const`-Referenzen auf die alten Objekte hielten – das Leeren hätte nicht gewirkt. Jetzt
+werden die Objekte ausgeräumt statt ersetzt; ein Test deckt genau das ab.
+
+**6 · settings.js aufgeteilt** (44 KB → Rahmen + fünf `set-*.js`), Module registrieren sich in
+`SETTINGS_VIEWS`, gemeinsame Helfer in `SETUI`. **Dabei mit fehlschlagendem Test gepusht:**
+`impexp.js` registriert sich jetzt ebenfalls, im Node-Test fehlte `SETTINGS_VIEWS`. Ich hatte
+vor dem Push nur zwei der drei Suiten laufen lassen – die CI hat es gemeldet, Nachtrag-Commit.
+
+**7 · Suche über alle Kacheln.** Feld im Kopfbereich, ab zwei Zeichen, entprellt, Treffer mit
+Reiter-Zuordnung und Hervorhebung. Läuft über `visibleReiter`/`kachelnFor` und erbt damit
+Rolle, Domäne, `Aktiv` und Zeitraum – im Browser gegengeprüft, dass eine `editor`-Kachel als
+`viewer` nicht auftaucht. Hervorhebung arbeitet auf maskiertem Text (mit `img/onerror` und
+`script` geprüft, nichts wird ausgeführt).
+
+**8 · Werks-Freigaben.** Optionale Spalte `Werke` in `AppPermissions` (Liste oder `*`) gibt
+gezielt fremde Werke frei, unabhängig vom eigenen `companyName`. `ctx.werke` + `werkErlaubt()`.
+
+**9 · orgScope pflegbar.** Neue optionale Liste `RUDJ_Einstellungen` (Title/Wert/Hinweis);
+Reichweite je Rolle über *Berechtigungen → Sichtbarkeit des Verzeichnisses* änderbar. Ohne
+Liste gilt `config.js`, ein ungültiger Wert wird ignoriert.
+
+**10 · Protokoll.** Optionale Liste `RUDJ_Protokoll` – Zeitpunkt, Konto, Aktion, Vorlage,
+Anzahl, Felder, Filter. Nur Metadaten. Fehlt die Liste, läuft der Vorgang durch (belegt).
+**Eigener Fehler:** `protokoll()` übergab `C.protokollListe && C.configSite` als Site-Pfad.
+
+**11 · Sicherung vor dem Import.** Vor der ersten Änderung wird eine CSV mit dem Ist-Zustand
+heruntergeladen; geprüft, dass sie den **alten** Wert enthält. Der Bestätigungsdialog nennt sie.
+
+**Zusatz · Filter im Import/Export.** Domänen-Auswahl (alle / nur gepflegte / eine bestimmte)
+und optional nur Mitglieder einer Gruppe, vorbelegt `dihag_intern@dihag.com`. Transitive
+Mitglieder, verschachtelte Gruppen zählen mit; unbekannte Gruppe wird benannt und der Filter
+übersprungen statt zu viel zu exportieren.
+
+**Stand:** `node --check` 13/13 Dateien, Tests 21 + 50 + 150 = **221 Prüfungen grün**, CI grün,
+Konsole fehlerfrei. Commits bb1e5c1, d728516, 3a4f356, 6fc3688, 15957d0, 5749dda, e74c56a.
+
+**Neu anzulegen (optional, App läuft ohne):** `RUDJ_Einstellungen` und `RUDJ_Protokoll` –
+Spalten in LISTEN-ANLEGEN.md, Abschnitte 5 und 6. Dazu die Spalte `Werke` in `AppPermissions`.
