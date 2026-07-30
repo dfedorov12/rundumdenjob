@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TEST · Rund um den Job</title>
+<link rel="icon" href="../assets/dihag-logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Exo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>document.write('<link rel="stylesheet" href="../css/styles.css?cb=' + Date.now() + '">');</script>
+</head>
+<body>
+<div style="background:#F08300;color:#fff;padding:6px 14px;font:600 13px/1.4 system-ui;text-align:center">TESTUMGEBUNG – alle Daten sind erfunden, es besteht keine Verbindung zu Microsoft 365. Produktiv: <a href="../" style="color:#fff;text-decoration:underline">../</a></div>
+<div id="boot">
+  <div class="boot-logo"><img src="../assets/dihag-logo.png" alt="DIHAG Foundry Group"></div>
+  <div class="boot-sub">Rund um den Job</div>
+  <div class="spinner" id="bootSpin"></div>
+  <div id="bootTxt">Anmeldung läuft …</div>
+  <div id="bootErr" hidden></div>
+  <button class="btn" id="bootBtn" hidden>Mit Microsoft anmelden</button>
+</div>
+<div id="noAccess" hidden>
+  <div class="box">
+    <div style="font-size:52px">🔒</div><h2>Kein Zugriff</h2><p id="naMsg"></p>
+    <div class="row" style="justify-content:center;margin-top:18px">
+      <button class="btn" id="naReq">📧 Freigabe anfragen</button>
+      <button class="btn sec" id="naOut">Abmelden</button>
+    </div>
+    <p class="ok" id="naSent" hidden>✓ gesendet</p><p class="err" id="naErr" hidden></p>
+  </div>
+</div>
+<div id="app" hidden>
+  <header>
+    <div class="hdr-top">
+      <div class="hdr-brand">
+        <img src="../assets/dihag-logo.png" alt="DIHAG">
+        <div class="hdr-sep"></div>
+        <div class="hdr-title"><h1>Rund um den Job</h1><span>Mitarbeiterportal</span></div>
+      </div>
+      <div class="hdr-spacer"></div>
+      <div class="hdr-user">
+        <span class="ges-badge" id="gesBadge" hidden><span class="dot"></span><span id="gesName"></span></span>
+        <div class="who"><b id="uName"></b><small id="uMeta"></small></div>
+        <div class="avatar" id="uAvatar"></div>
+        <button class="btn ghost sm" id="btnLogout">Abmelden</button>
+      </div>
+    </div>
+    <nav class="tabs"><div class="inner" id="tabBar"></div></nav>
+  </header>
+  <main id="main"></main>
+  <footer>DIHAG Foundry Group · <a href="#" id="lnkSupport">Support</a></footer>
+</div>
+
+<script>document.write('<scr'+'ipt src="../js/config.js?cb='+Date.now()+'"></scr'+'ipt>');</script>
+<script>
+/* ══ STUBS – ersetzen auth.js und graph.js ══════════════════════════ */
+const TESTDB = {
+  role: new URLSearchParams(location.search).get("role") || "admin",
+  mail: new URLSearchParams(location.search).get("mail") || "administrator@dihag.com",
+  gesellschaften: [
+    ["dihag.com","Dihag","DIH",true],["shb-guss.de","Shb-guss","SHB",false],
+    ["walze-coswig.de","Walze-coswig","WAL",false],["schmie-guss.de","Schmie-guss","SCH",false],
+    ["meuselwitz-guss.de","Meuselwitz-guss","MEU",false],["ewa-guss.de","Ewa-guss","EWA",false],
+    ["lintorfereg.de","Lintorfereg","LIN",false],["dihag-gienanth.com","Dihag-gienanth","DIH",false],
+    ["dihag-zaigler.com","Dihag-zaigler","DIH",false],["dihag-hasenclever.com","Dihag-hasenclever","DIH",false],
+    ["schmie-cnc.de","Schmie-cnc","SCH",false],
+    // Ballast, der weg soll
+    ["altfirma.de","Altfirma","ALT",false],["test.de","Test","TES",false],
+    ["extern-partner.com","Extern-partner","EXT",false],["nichtmehr.de","Nichtmehr","NIC",false]
+  ].map((a,i) => ({ id: "g"+i, Title: a[0], Gesellschaft: a[1], Kuerzel: a[2],
+                    Farbe: "#17509E", Standard: a[3], Aktiv: true, Sortierung: (i+1)*10 })),
+  reiter: [], kacheln: [],
+  denyWrite: false, typ2: false, auditRecht: true, loginCalls: [], meinWerk: "DIHAG Holding",
+  patches: [], managerCalls: [],
+  users: [
+    { id:"u1", displayName:"Erika Mustermann", userPrincipalName:"erika@dihag.com", mail:"erika@dihag.com",
+      accountEnabled:true, userType:"Member", givenName:"Erika", surname:"Mustermann",
+      jobTitle:"Sachbearbeiterin", department:"Einkauf", employeeId:"10042",
+      businessPhones:["+49 1"], assignedLicenses:[{skuId:"sku-e3"}],
+      signInActivity:{lastSignInDateTime:"2026-07-20T08:00:00Z"},
+      manager:{ id:"u3", displayName:"Chef Chefin", userPrincipalName:"chef@dihag.com" } },
+    { id:"u2", displayName:"Tom Muster", userPrincipalName:"tom@shb-guss.de", mail:"tom@shb-guss.de",
+      accountEnabled:true, userType:"Member", jobTitle:"Former", department:"Produktion",
+      employeeId:"10043", businessPhones:[], assignedLicenses:[] },
+    { id:"u3", displayName:"Chef Chefin", userPrincipalName:"chef@dihag.com", mail:"chef@dihag.com",
+      accountEnabled:true, userType:"Member", jobTitle:"Leitung", department:"Einkauf",
+      employeeId:"10001", businessPhones:[], assignedLicenses:[] },
+    { id:"u4", displayName:"Alt Konto", userPrincipalName:"alt@dihag.com", mail:"alt@dihag.com",
+      accountEnabled:false, userType:"Member", department:"Ehemalige",
+      employeeId:"9000", businessPhones:[], assignedLicenses:[] },
+    { id:"u5", displayName:"Gast Extern", userPrincipalName:"gast@extern.com", mail:"gast@extern.com",
+      accountEnabled:true, userType:"Guest", businessPhones:[], assignedLicenses:[] }
+  ],
+  scopes: ["User.Read","User.ReadBasic.All","User.Read.All","Sites.ReadWrite.All","Mail.Send"],
+  perms: [{ id: "p1", UserEmail: "administrator@dihag.com", App: "*", Role: "admin" }]
+};
+function GERR(request, status, code, msg) {
+  const e = new Error(msg); e.status = status; e.code = code; e.request = request;
+  e.detail = request + " → HTTP " + status + " " + code + ": " + msg; return e;
+}
+// Test-Token mit steuerbaren Scopes (unsigniertes JWT, nur die Nutzlast zaehlt)
+function mkTestToken(scopes) {
+  const b64u = o => btoa(JSON.stringify(o)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+  return b64u({alg:"none"}) + "." + b64u({
+    scp: scopes.join(" "), upn: TESTDB.mail, appid: RUDJ_CONFIG.clientId,
+    exp: Math.floor(Date.now()/1000) + 3600
+  }) + ".sig";
+}
+const AUTH = {
+  async signIn() { return "ok"; },
+  async getToken() { return mkTestToken(TESTDB.scopes); },
+  tokenInfo() {
+    try {
+      const p = mkTestToken(TESTDB.scopes).split(".")[1].replace(/-/g,'+').replace(/_/g,'/');
+      const d = JSON.parse(atob(p + "=".repeat((4 - p.length % 4) % 4)));
+      return { scopes: String(d.scp||"").split(" ").filter(Boolean), upn: d.upn,
+               appId: d.appid, exp: new Date(d.exp*1000) };
+    } catch { return null; }
+  },
+  startLogin(prompt, extra) { TESTDB.loginCalls.push({ prompt, extra: extra || [] }); },
+  logout() { console.log("[stub] logout"); }
+};
+
+let _uid = 100;
+const GRAPH = {
+  async call(path, opts = {}) {
+    const m = opts.method || "GET";
+    if (path.startsWith("/me?")) return {
+      displayName: "Admin DIHAG", mail: TESTDB.mail, userPrincipalName: TESTDB.mail,
+      jobTitle: "IT-Leitung", department: "Informationstechnologie", officeLocation: "Düsseldorf",
+      companyName: TESTDB.meinWerk
+    };
+    if (path.startsWith("/me/manager")) return { id:"m1", displayName:"Maria Beispiel",
+      jobTitle:"Geschäftsführung", mail:"gf@dihag.com", department:"Geschäftsleitung",
+      companyName:"DIHAG Holding", officeLocation:"Düsseldorf",
+      mobilePhone:"+49 170 1234567", businessPhones:["+49 211 1234-0"] };
+    if (path.includes("/directReports")) return { value: [
+      { id:"u1", displayName:"Tom Muster", jobTitle:"Systemadministrator", mail:"tom@dihag.com",
+        department:"IT", companyName:"DIHAG Holding", officeLocation:"Düsseldorf",
+        businessPhones:["+49 211 1234-11"] },
+      { id:"u2", displayName:"Lena Schmidt", jobTitle:"IT-Support", mail:"lena@dihag.com",
+        department:"IT", companyName:"Gienanth", officeLocation:"Eisenberg", businessPhones:[] },
+      { id:"u6", displayName:"Ohne Kontakt", jobTitle:"Praktikant", mail:"",
+        department:"IT", companyName:"DIHAG Holding", businessPhones:[] }
+    ]};
+    if (path.includes("microsoft.graph.sitePage")) return { value: [
+      { title: "Joblinks", webUrl: "https://dihag.sharepoint.com/SitePages/Joblinks.aspx", lastModifiedDateTime: "2026-04-01T10:00:00Z" },
+      { title: "Prozesslandschaft", webUrl: "https://dihag.sharepoint.com/SitePages/Prozesslandschaft.aspx", lastModifiedDateTime: "2026-03-20T10:00:00Z" }
+    ]};
+    if (path.startsWith("/users?")) {
+      // $filter fuer die Fuehrungskraft-Suche
+      const fil = /userPrincipalName eq '([^']+)'/.exec(path);
+      if (fil) {
+        const t = TESTDB.users.find(u => u.userPrincipalName === fil[1]);
+        return { value: t ? [{ id: t.id }] : [] };
+      }
+      if (path.includes("signInActivity") && !TESTDB.auditRecht) {
+        throw GERR("GET " + path, 403, "Authorization_RequestDenied", "Insufficient privileges");
+      }
+      // $select nachbilden: nicht angeforderte Zusatzfelder liefert Graph auch nicht
+      return { value: TESTDB.users.map(u => {
+        const c = JSON.parse(JSON.stringify(u));
+        if (!path.includes("signInActivity")) delete c.signInActivity;
+        if (!path.includes("employeeLeaveDateTime")) delete c.employeeLeaveDateTime;
+        if (!path.includes("$expand=manager")) delete c.manager;
+        return c;
+      })};
+    }
+    if (path === "/subscribedSkus?$select=skuId,skuPartNumber")
+      return { value: [{ skuId: "sku-e3", skuPartNumber: "ENTERPRISEPACK" }] };
+    if (/^\/users\/[^/]+\/memberOf/.test(path))
+      return { value: [{ displayName: "Alle Mitarbeitenden" }] };
+    const pu = /^\/users\/([^/?]+)$/.exec(path);
+    if (pu && m === "PATCH") {
+      const u = TESTDB.users.find(x => x.id === pu[1]);
+      TESTDB.patches.push({ id: pu[1], body: JSON.parse(opts.body) });
+      Object.assign(u, JSON.parse(opts.body));
+      return null;
+    }
+    const pm = /^\/users\/([^/]+)\/manager\/\$ref$/.exec(path);
+    if (pm) {
+      TESTDB.managerCalls.push({ id: pm[1], method: m, body: opts.body ? JSON.parse(opts.body) : null });
+      return null;
+    }
+    if (path === "/me/sendMail") return null;
+    if (path.startsWith("/sites/") && !path.includes("/lists") && !path.includes("/pages"))
+      return { id: "site-1", webUrl: "https://dihag.sharepoint.com/sites/IT" };
+    if (path.startsWith("/sites/site-1/lists?")) return { value: [{name:"Dokumente"},{name:"ZAPP"}] };
+    const cm = path.match(/^\/sites\/site-1\/lists\/([^/?]+)\/columns/);
+    if (cm) {
+      const nm = decodeURIComponent(cm[1]);
+      const key = Object.entries(RUDJ_CONFIG.lists).find(([k,v]) => v === nm)?.[0];
+      let cols = (SEED.EXPECTED[key] || []).map(n => ({ name: n, displayName: n }));
+      if (TESTDB.typ2 && key === "kacheln") {                   // SharePoint: Typ -> Typ2
+        cols = cols.map(c => c.name === "Typ" ? { name: "Typ2", displayName: "Typ" } : c);
+      }
+      if (TESTDB.colTypo && key === "reiter") {                 // Tippfehler beim Anlegen
+        cols = cols.filter(c => c.name !== "MinRolle")
+                   .map(c => c.name === "Domains" ? { name: "Domaenen", displayName: "Domaenen" } : c);
+      }
+      return { value: cols };
+    }
+    if (path === "/sites/site-1/lists") {
+      if (m === "POST") {
+        if (TESTDB.denyWrite) throw GERR("POST /sites/site-1/lists", 403, "accessDenied", "Access denied");
+        return { id: "probe-1", displayName: "RUDJ_Schreibtest" };
+      }
+    }
+    const lm = path.match(/^\/sites\/site-1\/lists\/([^/?]+)$/);
+    if (lm) {
+      const nm = decodeURIComponent(lm[1]);
+      if (m === "DELETE") { TESTDB.probeDeleted = true; return null; }
+      if (nm === "probe-1") return { id: "probe-1" };
+      if (nm === "RUDJ_Schreibtest") throw GERR("GET " + path, 404, "itemNotFound", "not found");
+      const known = { [RUDJ_CONFIG.lists.gesellschaften]: TESTDB.gesellschaften,
+                      [RUDJ_CONFIG.lists.reiter]: TESTDB.reiter,
+                      [RUDJ_CONFIG.lists.kacheln]: TESTDB.kacheln };
+      if (nm in known) {
+        if (TESTDB.listsMissing) throw GERR("GET " + path, 404, "itemNotFound", "The specified list was not found");
+        return { id: nm };
+      }
+      throw GERR("GET " + path, 404, "itemNotFound", "not found");
+    }
+    throw new Error("stub: unbekannter Pfad " + m + " " + path);
+  },
+  async callAll(path) { return (await GRAPH.call(path)).value || []; },
+  async siteId() { return "site-1"; },
+  async listId(s, n) { return n; },
+  async listItems(site, name) {
+    if (name === RUDJ_CONFIG.lists.gesellschaften) return TESTDB.gesellschaften;
+    if (name === RUDJ_CONFIG.lists.reiter)         return TESTDB.reiter;
+    if (name === RUDJ_CONFIG.lists.kacheln)        return TESTDB.kacheln;
+    if (name === RUDJ_CONFIG.permList)             return TESTDB.perms;
+    return null;
+  },
+  async addItem(site, name, f) {
+    const row = { id: "x" + (++_uid), ...f };
+    if (TESTDB.typ2 && name === RUDJ_CONFIG.lists.kacheln && "Typ" in row) {
+      row.Typ2 = row.Typ; delete row.Typ;    // wie SharePoint es real speichert
+    }
+    const t = { [RUDJ_CONFIG.lists.gesellschaften]: "gesellschaften",
+                [RUDJ_CONFIG.lists.reiter]: "reiter",
+                [RUDJ_CONFIG.lists.kacheln]: "kacheln",
+                [RUDJ_CONFIG.permList]: "perms" }[name];
+    TESTDB[t].push(row); return row;
+  },
+  async updateItem(site, name, id, f) {
+    const t = { [RUDJ_CONFIG.lists.gesellschaften]: "gesellschaften",
+                [RUDJ_CONFIG.lists.reiter]: "reiter",
+                [RUDJ_CONFIG.lists.kacheln]: "kacheln" }[name];
+    Object.assign(TESTDB[t].find(r => r.id === id), f); return f;
+  },
+  async deleteItem(site, name, id) {
+    const t = { [RUDJ_CONFIG.lists.gesellschaften]: "gesellschaften",
+                [RUDJ_CONFIG.lists.reiter]: "reiter",
+                [RUDJ_CONFIG.lists.kacheln]: "kacheln",
+                [RUDJ_CONFIG.permList]: "perms" }[name];
+    TESTDB[t] = TESTDB[t].filter(r => r.id !== id);
+  },
+  // Bildet die echte Zuordnungslogik aus graph.js nach (dort per Node-Test geprueft)
+  async fieldMap(site, name, expected, force) {
+    const key = Object.entries(RUDJ_CONFIG.lists).find(([k,v]) => v === name)?.[0];
+    const cols = (await GRAPH.call(`/sites/site-1/lists/${encodeURIComponent(name)}/columns`)).value;
+    const exact = new Set(cols.map(c => c.name));
+    const map = {};
+    for (const e of expected) {
+      if (exact.has(e)) { map[e] = e; continue; }
+      const suf = cols.find(c => new RegExp("^" + e + "\d+$").test(c.name));
+      if (suf) { map[e] = suf.name; continue; }
+      const dsp = cols.find(c => (c.displayName||"").toLowerCase() === e.toLowerCase());
+      if (dsp) { map[e] = dsp.name; continue; }
+    }
+    return map;
+  },
+  clearColumnCache() {},
+  async ensureList(site, name, cols) {
+    if (TESTDB.denyWrite) throw GERR("POST /sites/site-1/lists", 403, "accessDenied", "Access denied");
+    return "ok";
+  },
+  colText: (n, m = 255) => ({ name: n, text: { maxLength: m } }),
+  colNote: n => ({ name: n, text: { allowMultipleLines: true } }),
+  colNum:  n => ({ name: n, number: {} }),
+  colBool: n => ({ name: n, boolean: {} }),
+  colDate: n => ({ name: n, dateTime: { format: "dateOnly" } })
+};
+// Rolle im Test erzwingen
+RUDJ_CONFIG.hauptAdmins = TESTDB.role === "admin" ? [TESTDB.mail] : [];
+</script>
+<script>
+/* Cache-Buster: der Test soll immer die Dateien von der Platte laden,
+   nicht eine aeltere Version aus dem Browser-Cache. document.write haelt
+   die Ausfuehrungsreihenfolge ein. */
+["../js/data.js", "../js/seed.js", "../js/impexp.js", "../js/settings.js", "../js/app.js"].forEach(src =>
+  document.write('<scr' + 'ipt src="' + src + '?cb=' + Date.now() + '"></scr' + 'ipt>'));
+</script>
+<script>
+// Downloads abfangen: Inhalt in TESTDB.downloads sammeln
+TESTDB.downloads = [];
+const _createEl = document.createElement.bind(document);
+document.createElement = function (tag) {
+  const el = _createEl(tag);
+  if (String(tag).toLowerCase() === "a") {
+    el.click = function () { TESTDB.downloads.push({ name: el.download, href: el.href }); };
+  }
+  return el;
+};
+const _blobText = new Map();
+const _origBlob = window.Blob;
+window.Blob = function (parts, opts) {
+  const b = new _origBlob(parts, opts);
+  _blobText.set(b, parts.join(""));
+  return b;
+};
+const _createURL = URL.createObjectURL.bind(URL);
+URL.createObjectURL = function (b) {
+  const u = "blob:test-" + (TESTDB.downloads.length + 1);
+  TESTDB.lastBlobText = _blobText.get(b) ?? "";
+  return u;
+};
+URL.revokeObjectURL = function () {};
+
+// Startinhalte vorbelegen (ausser ?empty=1)
+if (!new URLSearchParams(location.search).get("empty")) {
+  SEED.REITER.forEach((r, i)  => TESTDB.reiter.push({ id: "r" + i, ...r }));
+  SEED.KACHELN.forEach((k, i) => TESTDB.kacheln.push({ id: "k" + i, ...k }));
+}
+// Rolle überschreiben, nachdem DATA existiert
+if (TESTDB.role !== "admin") {
+  const orig = DATA.loadUser;
+  DATA.loadUser = async function () { const c = await orig(); DATA.ctx.role = TESTDB.role; return c; };
+}
+</script>
+</body>
+</html>

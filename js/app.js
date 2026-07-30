@@ -419,7 +419,8 @@ const APP = (() => {
     const fremd = werk && meinWerk && werk !== meinWerk;
     const zeile = (dt, dd) => dd ? `<dt>${dt}</dt><dd>${dd}</dd>` : "";
     return `
-      <div class="person" data-person tabindex="0" role="button">
+      <div class="person" data-person tabindex="0" role="button" aria-expanded="false"
+           aria-label="Kontaktdaten von ${esc(p.displayName)} anzeigen">
         <span class="avatar">${esc(initials(p.displayName))}</span>
         <span class="pn"><b>${esc(p.displayName)}</b><small>${esc(p.jobTitle || p.mail || "")}</small></span>
         ${fremd ? `<span class="pill gray" style="font-size:10px">${esc(werk)}</span>` : ""}
@@ -497,14 +498,29 @@ const APP = (() => {
           Zum Aufklappen der Kontaktdaten auf eine Person klicken.</p>`);
       }
 
-      box.querySelectorAll("[data-person]").forEach(el => el.onclick = () => {
-        const d = el.nextElementSibling;
-        const offen = !d.hidden;
-        box.querySelectorAll(".person-det").forEach(x => x.hidden = true);
-        box.querySelectorAll("[data-person]").forEach(x => x.classList.remove("open"));
-        if (offen) return;
-        d.hidden = false;
-        el.classList.add("open");
+      box.querySelectorAll("[data-person]").forEach(el => {
+        const umschalten = () => {
+          const d = el.nextElementSibling;
+          const offen = !d.hidden;
+          box.querySelectorAll(".person-det").forEach(x => x.hidden = true);
+          box.querySelectorAll("[data-person]").forEach(x => {
+            x.classList.remove("open");
+            x.setAttribute("aria-expanded", "false");
+          });
+          if (offen) return;
+          d.hidden = false;
+          el.classList.add("open");
+          el.setAttribute("aria-expanded", "true");
+        };
+        el.onclick = umschalten;
+        // Ein div mit role="button" löst bei Enter/Leertaste keinen Klick aus –
+        // ohne das hier wäre die Zeile nur mit der Maus bedienbar.
+        el.onkeydown = e => {
+          if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+            e.preventDefault();
+            umschalten();
+          }
+        };
       });
     } catch (e) {
       box.innerHTML = `<p class="hint">Verzeichnisdaten konnten nicht geladen werden.</p>`;
