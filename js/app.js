@@ -123,6 +123,17 @@ const APP = (() => {
     document.addEventListener("keydown", e => {
       if (e.key === "Escape") { const m = $("tabMenu"); if (m) m.hidden = true; }
     });
+
+    // Suche: entprellt, damit nicht jeder Tastendruck neu rendert
+    const feld = $("suche");
+    if (feld) {
+      let st = null;
+      feld.oninput = () => { clearTimeout(st); st = setTimeout(() => suchen(feld.value), 180); };
+      feld.onkeydown = e => {
+        if (e.key === "Escape") { feld.value = ""; suchen(""); feld.blur(); }
+      };
+      $("sucheX").onclick = () => { feld.value = ""; suchen(""); feld.focus(); };
+    }
   }
 
   function showNoAccess() {
@@ -310,6 +321,12 @@ const APP = (() => {
       return;
     }
     current = key;
+    // Reiterwechsel beendet eine laufende Suche
+    if (sucheAktiv) {
+      sucheAktiv = false;
+      const f = $("suche");
+      if (f) { f.value = ""; const x = $("sucheX"); if (x) x.hidden = true; }
+    }
     history.replaceState({}, "", "#" + encodeURIComponent(key));
     document.querySelectorAll("#tabBar button")
       .forEach(b => b.classList.toggle("active", b.dataset.key === key));
@@ -321,6 +338,61 @@ const APP = (() => {
 
   const emptyState = (ico, title, text) =>
     `<div class="empty"><div class="big">${ico}</div><b>${esc(title)}</b><p>${esc(text)}</p></div>`;
+
+  /* ── Suche über alle Kacheln ─────────────────────────────────────────
+     Durchsucht nur, was für dieses Konto ohnehin sichtbar ist – die Suche
+     darf keine Inhalte offenlegen, die im Reiter ausgeblendet wären.      */
+
+  let sucheAktiv = false;
+
+  function suchen(begriff) {
+    const q = String(begriff || "").trim().toLowerCase();
+    const x = $("sucheX");
+    if (x) x.hidden = !q;
+
+    if (q.length < 2) {
+      if (sucheAktiv) { sucheAktiv = false; open(current); }   // zurück zum Reiter
+      return;
+    }
+    sucheAktiv = true;
+
+    const reiter = DATA.visibleReiter();
+    const treffer = [];
+    for (const r of reiter) {
+      for (const k of DATA.kachelnFor(r.ReiterKey)) {
+        const heu = [k.Title, k.Beschreibung, k.Inhalt, k.Badge].filter(Boolean).join(" ").toLowerCase();
+        if (heu.includes(q)) treffer.push({ k, r });
+      }
+    }
+
+    $("main").innerHTML = `
+      <div class="view active">
+        <div class="page-head">
+          <h2><span>🔍</span>Suche</h2>
+          <p>${treffer.length === 0 ? "Keine Treffer" : treffer.length === 1 ? "1 Treffer"
+              : treffer.length + " Treffer"} für „${esc(begriff.trim())}“ –
+             gesucht wird nur in den für Sie freigegebenen Inhalten.</p>
+        </div>
+        ${treffer.length
+          ? `<div class="tiles">${treffer.map(({ k, r }) => `
+              <div style="display:flex;flex-direction:column">
+                <span class="treffer-reiter">${esc(r.Icon || "")} ${esc(r.Title)}</span>
+                ${tileHtml(k, q)}
+              </div>`).join("")}</div>`
+          : emptyState("🤷", "Nichts gefunden",
+              "Andere Schreibweise versuchen, oder im passenden Reiter nachsehen.")}
+      </div>`;
+  }
+
+  /** Fundstelle im Text hervorheben. Arbeitet auf dem bereits maskierten
+   *  Text, damit kein Markup aus den Daten wirksam werden kann. */
+  function hervor(text, q) {
+    const s = esc(text ?? "");
+    if (!q) return s;
+    const i = s.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return s;
+    return s.slice(0, i) + '<mark class="hit">' + s.slice(i, i + q.length) + "</mark>" + s.slice(i + q.length);
+  }
 
   /* ── Reiter-Inhalt ───────────────────────────────────────────────── */
 
@@ -347,23 +419,25 @@ const APP = (() => {
     if (tab.key === "start") renderStart($("tabExtra"));
   }
 
-  function tileHtml(k) {
+  /** @param {string} [q] Suchbegriff – wird in Titel und Text hervorgehoben. */
+  function tileHtml(k, q = "") {
     const icon = esc(k.Icon || "🔗");
     const badge = k.Badge ? `<span class="badge">${esc(k.Badge)}</span>` : "";
     const typ = String(k.Typ || "link").toLowerCase();
+    const h = t => hervor(t, q);
 
     if (typ === "text") {
-      return `<div class="tile text-tile card-wide">${badge}
+      return `<div class="tile text-tile${q ? "" : " card-wide"}">${badge}
         <div class="tb">
-          <b>${icon} ${esc(k.Title)}</b>
-          ${k.Beschreibung ? `<p style="margin:0 0 8px;color:var(--muted);font-size:13.5px">${esc(k.Beschreibung)}</p>` : ""}
-          <div class="body">${esc(k.Inhalt || "")}</div>
+          <b>${icon} ${h(k.Title)}</b>
+          ${k.Beschreibung ? `<p style="margin:0 0 8px;color:var(--muted);font-size:13.5px">${h(k.Beschreibung)}</p>` : ""}
+          <div class="body">${h(k.Inhalt || "")}</div>
         </div></div>`;
     }
     const url = safeUrl(k.Url);
     const inner = `${badge}
       <div class="ti">${icon}</div>
-      <div class="tb"><b>${esc(k.Title)}</b><p>${esc(k.Beschreibung || "")}</p></div>
+      <div class="tb"><b>${h(k.Title)}</b><p>${h(k.Beschreibung || "")}</p></div>
       ${url ? '<span class="arrow">↗</span>' : ""}`;
     return url
       ? `<a class="tile" href="${esc(url)}" target="_blank" rel="noopener">${inner}</a>`

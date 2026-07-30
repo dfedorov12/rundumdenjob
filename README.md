@@ -77,6 +77,13 @@ Jeder Eintrag trägt dafür:
 Kacheltypen: `link` (öffnet ein Ziel – Intranet-Seite, Timebutler, Schwester-App) und
 `text` (Textblock direkt auf der Seite, volle Breite).
 
+### Suche
+Das Feld im Kopfbereich durchsucht ab zwei Zeichen **Titel, Beschreibung und Textinhalt**
+aller Kacheln über alle Reiter hinweg und zeigt je Treffer, aus welchem Reiter er kommt.
+Gesucht wird ausschließlich in dem, was für das Konto ohnehin sichtbar ist – Rolle,
+Domäne, `Aktiv` und Gültigkeitszeitraum gelten genauso wie im Reiter. Escape oder das
+× setzt zurück, ein Reiterklick beendet die Suche.
+
 ### Anbindung an das Intranet und das Organigramm
 * Der Reiter **Start** zeigt Profil, Führungskraft, eigenes Team und Kolleg:innen –
   aus denselben Graph-Daten, aus denen sich auch das Organigramm speist, samt Direktlink dorthin.
