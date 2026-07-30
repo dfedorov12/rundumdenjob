@@ -15,6 +15,8 @@ const sandbox = {
   AUTH: { tokenInfo: () => ({ scopes: sandbox.__scopes }) },
   __scopes: [],
   GRAPH: {}, DATA: { domainOf: a => String(a).split("@")[1] || "" }, SEED: { EXPECTED: {} },
+  // impexp.js registriert sich am Ende als Unterreiter der Einstellungen
+  SETTINGS_VIEWS: {},
   URL: { createObjectURL: () => "blob:", revokeObjectURL: () => {} },
   Blob: class {}
 };
