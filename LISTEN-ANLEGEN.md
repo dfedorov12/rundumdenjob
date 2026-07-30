@@ -119,6 +119,7 @@ Alle übrigen Mitarbeitenden brauchen keinen Eintrag.
 | `Role` | Einzelne Textzeile | **ja** | `admin`, `editor`, `viewer` oder `none` |
 | `UserDisplayName` | Einzelne Textzeile | nein | Klarname, nur zur Anzeige im Admin-Portal |
 | `Notes` | Mehrere Textzeilen, **Nur Text** | nein | Notiz, z. B. warum die Rolle vergeben wurde |
+| `Werke` | Einzelne Textzeile | nein | Zusätzlich freigegebene Werke (`companyName`), z. B. `gienanth;shb-guss` oder `*` für alle. Wirkt unabhängig davon, in welchem Werk die Person selbst geführt wird |
 
 > **`App` und `Role` bitte als „Einzelne Textzeile" anlegen, nicht als Auswahl (Choice).**
 > Die alte Liste auf `/sites/ticket` hatte `App` als Auswahl mit nur `dms/tickets/orgchart/*` –
@@ -138,6 +139,32 @@ Beispielzeile:
 | Title | UserEmail | App | Role |
 |---|---|---|---|
 | fedorov@dihag.com | fedorov@dihag.com | rundumdenjob | admin |
+
+---
+
+## 5 · Liste `RUDJ_Einstellungen` (optional)
+
+Für Werte, die sonst nur per Commit änderbar wären. Fehlt die Liste, gelten die Vorgaben aus
+`js/config.js` – die App läuft also auch ohne sie.
+
+**`Title` = Schlüssel**, z. B. `orgScope.viewer`.
+
+| Spaltenname | Typ in SharePoint | Hinweis |
+|---|---|---|
+| `Wert` | Einzelne Textzeile | der eigentliche Wert |
+| `Hinweis` | Mehrere Textzeilen, **Nur Text** | Notiz, wofür der Schlüssel steht |
+
+Derzeit genutzte Schlüssel – pflegbar über *Einstellungen → 🔑 Berechtigungen →
+Sichtbarkeit des Verzeichnisses*:
+
+| Schlüssel | Werte | Bedeutung |
+|---|---|---|
+| `orgScope.viewer` | `werk` / `gesellschaft` / `alle` | Reichweite von „Mein Umfeld" für `viewer` |
+| `orgScope.editor` | dito | dasselbe für `editor` |
+| `orgScope.admin` | dito | dasselbe für `admin` |
+
+Ein unbekannter Wert wird ignoriert und die Vorgabe greift – ein Tippfehler in SharePoint kann
+die Sichtbarkeit also nicht versehentlich aufreißen.
 
 ---
 

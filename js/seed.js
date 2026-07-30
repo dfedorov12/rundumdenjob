@@ -50,6 +50,11 @@ const SEED = (() => {
       G.colNum("Sortierung"),
       G.colDate("GueltigVon"),
       G.colDate("GueltigBis")
+    ],
+    einstellungen: [
+      // Title = Schluessel, z. B. "orgScope.viewer"
+      G.colText("Wert", 255),
+      G.colNote("Hinweis")
     ]
   };
 
@@ -58,7 +63,8 @@ const SEED = (() => {
     gesellschaften: ["Title", "Gesellschaft", "Kuerzel", "Farbe", "Standard", "Aktiv", "Sortierung"],
     reiter:         ["Title", "ReiterKey", "Icon", "Beschreibung", "Domains", "MinRolle", "Aktiv", "Sortierung"],
     kacheln:        ["Title", "ReiterKey", "Typ", "Icon", "Beschreibung", "Url", "Inhalt", "Badge",
-                     "Domains", "MinRolle", "Aktiv", "Sortierung", "GueltigVon", "GueltigBis"]
+                     "Domains", "MinRolle", "Aktiv", "Sortierung", "GueltigVon", "GueltigBis"],
+    einstellungen:  ["Title", "Wert", "Hinweis"]
   };
 
   /* ── Startinhalte ────────────────────────────────────────────────── */

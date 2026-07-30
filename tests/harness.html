@@ -70,7 +70,7 @@ const TESTDB = {
     ["extern-partner.com","Extern-partner","EXT",false],["nichtmehr.de","Nichtmehr","NIC",false]
   ].map((a,i) => ({ id: "g"+i, Title: a[0], Gesellschaft: a[1], Kuerzel: a[2],
                     Farbe: "#17509E", Standard: a[3], Aktiv: true, Sortierung: (i+1)*10 })),
-  reiter: [], kacheln: [],
+  reiter: [], kacheln: [], einstellungen: [],
   denyWrite: false, typ2: false, auditRecht: true, loginCalls: [], meinWerk: "DIHAG Holding",
   patches: [], managerCalls: [],
   users: [
@@ -231,6 +231,7 @@ const GRAPH = {
     if (name === RUDJ_CONFIG.lists.gesellschaften) return TESTDB.gesellschaften;
     if (name === RUDJ_CONFIG.lists.reiter)         return TESTDB.reiter;
     if (name === RUDJ_CONFIG.lists.kacheln)        return TESTDB.kacheln;
+    if (name === RUDJ_CONFIG.einstellungenListe)   return TESTDB.einstellungenFehlt ? null : TESTDB.einstellungen;
     if (name === RUDJ_CONFIG.permList)             return TESTDB.perms;
     return null;
   },
@@ -242,13 +243,15 @@ const GRAPH = {
     const t = { [RUDJ_CONFIG.lists.gesellschaften]: "gesellschaften",
                 [RUDJ_CONFIG.lists.reiter]: "reiter",
                 [RUDJ_CONFIG.lists.kacheln]: "kacheln",
+                [RUDJ_CONFIG.einstellungenListe]: "einstellungen",
                 [RUDJ_CONFIG.permList]: "perms" }[name];
     TESTDB[t].push(row); return row;
   },
   async updateItem(site, name, id, f) {
     const t = { [RUDJ_CONFIG.lists.gesellschaften]: "gesellschaften",
                 [RUDJ_CONFIG.lists.reiter]: "reiter",
-                [RUDJ_CONFIG.lists.kacheln]: "kacheln" }[name];
+                [RUDJ_CONFIG.lists.kacheln]: "kacheln",
+                [RUDJ_CONFIG.einstellungenListe]: "einstellungen" }[name];
     Object.assign(TESTDB[t].find(r => r.id === id), f); return f;
   },
   async deleteItem(site, name, id) {

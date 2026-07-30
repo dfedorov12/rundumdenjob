@@ -36,6 +36,10 @@ const RUDJ_CONFIG = {
     kacheln:        "RUDJ_Kacheln"
   },
 
+  // Optionale Liste fuer Werte, die sonst nur per Commit aenderbar waeren
+  // (derzeit orgScope). Fehlt sie, gelten die Vorgaben aus dieser Datei.
+  einstellungenListe: "RUDJ_Einstellungen",
+
   /* ── SharePoint: zentrale Rechteliste ─────────────────────────────
      Liegt auf derselben Site wie die Konfigurationslisten. Vorher
      /sites/ticket – dort konnten normale Konten die Liste nicht lesen,

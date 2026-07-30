@@ -11,12 +11,16 @@ const DATA = (() => {
    *          domain:string, role:string, gesellschaft:object|null}} */
   const ctx = {
     me: null, email: "", name: "", domains: [], domain: "",
-    role: C.defaultRole, gesellschaft: null
+    role: C.defaultRole, gesellschaft: null,
+    /** Zusaetzlich freigegebene Werke aus AppPermissions.Werke – leer heisst
+     *  „nur das eigene Werk“, ["*"] heisst „alle“. */
+    werke: []
   };
 
   /** @type {{gesellschaften:any[], reiter:any[], kacheln:any[],
    *          missing:string[], writable:boolean}} */
-  const cfg = { gesellschaften: [], reiter: [], kacheln: [], missing: [], writable: false };
+  const cfg = { gesellschaften: [], reiter: [], kacheln: [], einstellungen: {},
+                missing: [], writable: false };
 
   /* ── Hilfsfunktionen ─────────────────────────────────────────────── */
 
@@ -92,6 +96,7 @@ const DATA = (() => {
       const c = JSON.parse(sessionStorage.getItem(ROLE_KEY) || "null");
       if (!c || c.email !== email || Date.now() - c.ts > ROLE_TTL) return null;
       Object.assign(roleInfo, c.info, { auscache: true });
+      ctx.werke = c.werke || [];
       return c.role;
     } catch { return null; }
   }
@@ -99,7 +104,7 @@ const DATA = (() => {
   function roleInCache(email, role) {
     try {
       sessionStorage.setItem(ROLE_KEY, JSON.stringify({
-        email, role, ts: Date.now(),
+        email, role, ts: Date.now(), werke: ctx.werke,
         info: { ...roleInfo, auscache: false }
       }));
     } catch {}
@@ -128,9 +133,15 @@ const DATA = (() => {
     roleInfo.auscache = false;
     roleInfo.zeilen = roleInfo.treffer = roleInfo.passend = 0;
 
-    if (isHauptAdmin(ctx.email)) { roleInfo.quelle = "hauptadmin"; return "admin"; }
+    if (isHauptAdmin(ctx.email)) {
+      roleInfo.quelle = "hauptadmin";
+      ctx.werke = ["*"];
+      return "admin";
+    }
+    ctx.werke = [];
     try {
-      const rows = await GRAPH.listItems(C.permSite, C.permList, ["Title", "UserEmail", "App", "Role"]);
+      const rows = await GRAPH.listItems(C.permSite, C.permList,
+        ["Title", "UserEmail", "App", "Role", "Werke"]);
       if (!rows) {
         // listItems liefert null, wenn die Liste nicht gefunden wird – für
         // Konten ohne Zugriff auf die Site sieht das genauso aus.
@@ -140,13 +151,18 @@ const DATA = (() => {
       }
       roleInfo.zeilen = rows.length;
       let best = RANK[C.defaultRole] ?? 1;
+      const werke = new Set();
       for (const r of rows) {
         if ((r.UserEmail || "").toLowerCase() !== ctx.email) continue;
         roleInfo.treffer++;
         if (r.App !== C.appKey && r.App !== "*") continue;
         roleInfo.passend++;
         best = Math.max(best, RANK[String(r.Role || "").toLowerCase()] ?? 0);
+        // Optionale Spalte: gezielt freigegebene Werke, unabhaengig davon,
+        // in welchem Werk die Person selbst gefuehrt wird.
+        for (const w of parseList(r.Werke)) werke.add(w);
       }
+      ctx.werke = [...werke];
       if (roleInfo.passend) roleInfo.quelle = "liste";
       return Object.keys(RANK).find(k => RANK[k] === best) || C.defaultRole;
     } catch (e) {
@@ -204,11 +220,17 @@ const DATA = (() => {
     }
 
     cfg.missing = [];
-    const [ges, rei, kac] = await Promise.all([
+    const [ges, rei, kac, eins] = await Promise.all([
       GRAPH.listItems(C.configSite, C.lists.gesellschaften, SEED.EXPECTED.gesellschaften).catch(() => null),
       GRAPH.listItems(C.configSite, C.lists.reiter,         SEED.EXPECTED.reiter).catch(() => null),
-      GRAPH.listItems(C.configSite, C.lists.kacheln,        SEED.EXPECTED.kacheln).catch(() => null)
+      GRAPH.listItems(C.configSite, C.lists.kacheln,        SEED.EXPECTED.kacheln).catch(() => null),
+      // Optional: fehlt die Liste, gelten die Vorgaben aus config.js
+      GRAPH.listItems(C.configSite, C.einstellungenListe, SEED.EXPECTED.einstellungen).catch(() => null)
     ]);
+    cfg.einstellungen = {};
+    for (const r of (eins || [])) {
+      if (r.Title) cfg.einstellungen[String(r.Title).trim()] = r.Wert ?? "";
+    }
     if (ges === null) cfg.missing.push(C.lists.gesellschaften);
     if (rei === null) cfg.missing.push(C.lists.reiter);
     if (kac === null) cfg.missing.push(C.lists.kacheln);
@@ -220,7 +242,8 @@ const DATA = (() => {
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify({
         ts: Date.now(),
-        data: { gesellschaften: cfg.gesellschaften, reiter: cfg.reiter, kacheln: cfg.kacheln, missing: cfg.missing }
+        data: { gesellschaften: cfg.gesellschaften, reiter: cfg.reiter, kacheln: cfg.kacheln,
+                einstellungen: cfg.einstellungen, missing: cfg.missing }
       }));
     } catch {}
 
@@ -242,6 +265,32 @@ const DATA = (() => {
       act.find(g => g.Standard === true) ||
       null;
     return ctx.gesellschaft;
+  }
+
+  /* ── Sichtbarkeit des Verzeichnisses ─────────────────────────────── */
+
+  const ORG_SCOPES = ["werk", "gesellschaft", "alle"];
+
+  /** Reichweite für „Mein Umfeld": erst die Einstellungsliste (Schlüssel
+   *  `orgScope.<rolle>`), sonst die Vorgabe aus config.js. Ungültige Werte
+   *  werden ignoriert – ein Tippfehler in SharePoint soll die Sichtbarkeit
+   *  nicht versehentlich aufreißen. */
+  function orgScope(rolle = ctx.role) {
+    const ausListe = String(cfg.einstellungen["orgScope." + rolle] || "").trim().toLowerCase();
+    if (ORG_SCOPES.includes(ausListe)) return ausListe;
+    const ausConfig = String((C.orgScope || {})[rolle] || "").toLowerCase();
+    return ORG_SCOPES.includes(ausConfig) ? ausConfig : "werk";
+  }
+
+  /** Darf dieses Werk gesehen werden? Berücksichtigt zusätzlich die Spalte
+   *  `Werke` aus AppPermissions – damit sieht eine Werksleitung gezielt fremde
+   *  Werke, ohne dass ihr eigenes `companyName` geändert werden muss. */
+  function werkErlaubt(werk) {
+    if (ctx.werke.includes("*")) return true;
+    const w = String(werk || "").toLowerCase();
+    if (ctx.werke.length && ctx.werke.includes(w)) return true;
+    const eigen = String(ctx.me?.companyName || "").toLowerCase();
+    return !eigen || w === eigen;
   }
 
   /* ── Aufbereitete Sichten für die Oberfläche ─────────────────────── */
@@ -273,6 +322,7 @@ const DATA = (() => {
     roleInfo, roleErklaerung,
     loadUser, loadConfig, clearCache, resolveGesellschaft, reloadRole,
     isVisible, visibleReiter, kachelnFor, discoverDomains,
-    isAdmin, canWrite, isHauptAdmin, parseList, domainOf, num
+    isAdmin, canWrite, isHauptAdmin, parseList, domainOf, num,
+    orgScope, werkErlaubt, ORG_SCOPES
   };
 })();

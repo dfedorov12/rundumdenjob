@@ -538,13 +538,15 @@ const APP = (() => {
       const seen = new Set(reports.map(p => p.id));
       peers = peers.filter(p => !seen.has(p.id));
 
-      // Sichtbarkeit nach Rolle einschränken – Werk = companyName, wie im Orgchart.
-      const scope = (C.orgScope || {})[DATA.ctx.role] || "werk";
+      // Sichtbarkeit nach Rolle einschränken – Werk = companyName, wie im
+      // Orgchart. Die Reichweite kommt aus der Einstellungsliste bzw. config.js,
+      // die zusätzlich freigegebenen Werke aus AppPermissions.Werke.
+      const scope = DATA.orgScope();
       const meinWerk = DATA.ctx.me.companyName || "";
       const imScope = p => {
         if (scope === "alle") return true;
         if (scope === "gesellschaft") return DATA.ctx.domains.includes(DATA.domainOf(p.mail));
-        return !meinWerk || (p.companyName || "") === meinWerk;   // werk
+        return DATA.werkErlaubt(p.companyName);   // werk (+ Freigaben)
       };
       const vorFilter = reports.length + peers.length;
       reports = reports.filter(imScope);
@@ -566,6 +568,10 @@ const APP = (() => {
         box.insertAdjacentHTML("beforeend", `<p class="hint" style="margin-top:14px">
           ${scope === "alle" ? "Alle Werke sichtbar."
             : scope === "gesellschaft" ? `Eingeschränkt auf die Gesellschaft <b>@${esc(DATA.ctx.domain)}</b>.`
+            : DATA.ctx.werke.includes("*") ? "Alle Werke für Sie freigegeben."
+            : DATA.ctx.werke.length
+              ? `Sichtbar: Ihr Werk${meinWerk ? ` <b>${esc(meinWerk)}</b>` : ""} und zusätzlich
+                 freigegeben <b>${DATA.ctx.werke.map(esc).join(", ")}</b>.`
             : meinWerk ? `Eingeschränkt auf Ihr Werk <b>${esc(meinWerk)}</b>.`
                        : "Kein Werk im Verzeichnis hinterlegt (Feld <code>companyName</code>) – es wird nicht eingeschränkt."}
           ${ausgeblendet > 0 ? ` ${ausgeblendet} Person(en) aus anderen Werken ausgeblendet.` : ""}

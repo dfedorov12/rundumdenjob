@@ -27,6 +27,38 @@ SETTINGS_VIEWS.rechte = (() => {
         <div id="pBox"><p class="hint">Wird geladen …</p></div>
       </div>
       <div class="card">
+        <h4>🗂️ Sichtbarkeit des Verzeichnisses</h4>
+        <p class="hint">Wie weit darf eine Rolle in „Mein Umfeld“ auf der Startseite schauen?
+          Das Werk kommt – wie im Organigramm – aus dem Entra-Feld <code>companyName</code>.
+          Gespeichert wird in der Liste <b>${esc(C.einstellungenListe)}</b>; fehlt sie, gelten
+          die Vorgaben aus <code>js/config.js</code>.</p>
+        <div class="tbl-wrap"><table class="tbl">
+          <thead><tr><th>Rolle</th><th>Reichweite</th><th>Quelle</th></tr></thead>
+          <tbody>${["viewer", "editor", "admin"].map(r => {
+            const wert = DATA.orgScope(r);
+            const ausListe = (DATA.cfg.einstellungen["orgScope." + r] || "").trim() !== "";
+            return `<tr>
+              <td><span class="pill ${r === "admin" ? "orange" : r === "editor" ? "navy" : "gray"}">${r}</span></td>
+              <td><select data-scope="${r}" style="width:auto">
+                ${DATA.ORG_SCOPES.map(o => `<option value="${o}"${o === wert ? " selected" : ""}>${
+                  o === "werk" ? "werk – nur das eigene Werk"
+                  : o === "gesellschaft" ? "gesellschaft – gleiche E-Mail-Domäne"
+                  : "alle – keine Einschränkung"}</option>`).join("")}
+              </select></td>
+              <td><span class="pill ${ausListe ? "green" : "gray"}">${ausListe ? "Liste" : "config.js"}</span></td>
+            </tr>`;
+          }).join("")}
+          </tbody></table></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="oScopeSave">Reichweiten speichern</button>
+        </div>
+        <p class="hint" style="margin:12px 0 0">Einzelnen Konten lassen sich über die Spalte
+          <b>Werke</b> in <b>${esc(C.permList)}</b> zusätzliche Werke freigeben – etwa
+          <code>gienanth;shb-guss</code> oder <code>*</code> für alle. Das wirkt unabhängig
+          davon, in welchem Werk die Person selbst geführt wird.</p>
+      </div>
+
+      <div class="card">
         <h4>👑 Haupt-Administration</h4>
         <p class="hint">Diese Konten sind in <code>js/config.js</code> festgeschrieben und haben
           immer die Rolle <b>admin</b> – unabhängig von der Rechteliste. So bleibt die App
@@ -42,6 +74,7 @@ SETTINGS_VIEWS.rechte = (() => {
           </tbody></table></div>
       </div>`;
     $("pNew").onclick = () => editPerm();
+    $("oScopeSave").onclick = e => scopeSpeichern(e.currentTarget);
     $("pReload").onclick = e => rolleNeuLesen(e.currentTarget);
 
     try {
@@ -130,6 +163,41 @@ SETTINGS_VIEWS.rechte = (() => {
         } catch (e) { APP.toast(e.message, true); return false; }
       }
     });
+  }
+
+  /** Reichweiten in die Einstellungsliste schreiben (je Rolle eine Zeile).
+   *  Die Liste ist optional – fehlt sie, sagt die Meldung, was zu tun ist. */
+  async function scopeSpeichern(btn) {
+    btn.disabled = true;
+    try {
+      const vorhanden = await GRAPH.listItems(
+        C.configSite, C.einstellungenListe, SEED.EXPECTED.einstellungen);
+      if (!vorhanden) {
+        APP.toast(`Liste ${C.einstellungenListe} fehlt – Spalten siehe LISTEN-ANLEGEN.md.`, true);
+        return;
+      }
+      const nachSchluessel = new Map(vorhanden.map(r => [String(r.Title || "").trim(), r]));
+      let n = 0;
+      for (const el of document.querySelectorAll("[data-scope]")) {
+        const key = "orgScope." + el.dataset.scope;
+        const wert = el.value;
+        const alt = nachSchluessel.get(key);
+        if (alt && String(alt.Wert || "") === wert) continue;
+        const felder = { Title: key, Wert: wert,
+          Hinweis: "Reichweite von Mein Umfeld fuer die Rolle " + el.dataset.scope };
+        if (alt) await GRAPH.updateItem(C.configSite, C.einstellungenListe, alt.id, felder);
+        else     await GRAPH.addItem(C.configSite, C.einstellungenListe, felder);
+        n++;
+      }
+      DATA.clearCache();
+      await DATA.loadConfig(true);
+      APP.toast(n ? n + " Reichweite(n) gespeichert" : "Keine Änderung");
+      neu();
+    } catch (e) {
+      APP.toast(e.detail || e.message, true);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   return viewRechte;

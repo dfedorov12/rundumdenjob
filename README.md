@@ -102,6 +102,14 @@ Domäne, `Aktiv` und Gültigkeitszeitraum gelten genauso wie im Reiter. Escape o
   Die Führungskraft wird immer gezeigt, auch werksübergreifend – sonst bliebe die Karte bei
   Werksleitungen leer. Ist am Konto kein `companyName` hinterlegt, wird nicht eingeschränkt;
   die Karte sagt das dazu, ebenso wie die Zahl der ausgeblendeten Personen.
+
+  Die Reichweite ist **ohne Commit änderbar**: *Einstellungen → 🔑 Berechtigungen →
+  Sichtbarkeit des Verzeichnisses* schreibt sie in die optionale Liste `RUDJ_Einstellungen`.
+  Fehlt die Liste, gilt `config.js`; ein unbekannter Wert wird ignoriert.
+
+  Einzelne Konten bekommen über die Spalte **`Werke`** in `AppPermissions` gezielt weitere
+  Werke frei – etwa `gienanth;shb-guss` oder `*`. Damit sieht eine Werksleitung fremde Werke,
+  ohne dass ihr eigenes `companyName` geändert werden muss.
 * Darunter erscheinen die zuletzt geänderten Seiten der Intranet-Root-Site
   (`dihag.sharepoint.com`) als „Neues aus der DIHAG“.
 * Kacheln verlinken auf Intranet-Seiten, Timebutler und die übrigen DIHAG-Apps.
