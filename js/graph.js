@@ -5,8 +5,50 @@
 const GRAPH = (() => {
 
   const BASE = "https://graph.microsoft.com/v1.0";
-  const _siteIds = {};   // "host:/sites/x" → id
-  const _listIds = {};   // "siteId|Listenname" → id
+
+  /* ── Metadaten-Cache ──────────────────────────────────────────────────
+     Site-IDs, Listen-IDs und die Spaltenzuordnung ändern sich praktisch
+     nie, lagen aber nur im Arbeitsspeicher – nach jedem Neuladen kostete
+     das rund sieben zusätzliche Graph-Aufrufe, bevor die Seite stand.
+     Jetzt zusätzlich im sessionStorage, mit Ablauf. Der Cache enthält nur
+     technische IDs, keine Inhalte.                                      */
+
+  const META_KEY = "rudj_meta";
+  const META_TTL = 12 * 60 * 60 * 1000;   // 12 h; endet ohnehin mit der Sitzung
+
+  // Feste Objekte – die übrigen Funktionen halten Referenzen darauf. Beim
+  // Leeren dürfen sie deshalb nicht ersetzt, sondern nur ausgeräumt werden.
+  const _meta = { siteIds: {}, listIds: {}, colMaps: {}, colExp: {} };
+  try {
+    const roh = sessionStorage.getItem(META_KEY);
+    if (roh) {
+      const c = JSON.parse(roh);
+      if (c && Date.now() - c.ts < META_TTL && c.data) {
+        for (const k of Object.keys(_meta)) Object.assign(_meta[k], c.data[k] || {});
+      }
+    }
+  } catch {}
+
+  let _metaTimer = null;
+  function metaSpeichern() {
+    // gesammelt schreiben – sonst serialisiert jeder Aufruf den ganzen Cache
+    clearTimeout(_metaTimer);
+    _metaTimer = setTimeout(() => {
+      try { sessionStorage.setItem(META_KEY, JSON.stringify({ ts: Date.now(), data: _meta })); }
+      catch {}
+    }, 300);
+  }
+
+  function metaLeeren() {
+    for (const teil of Object.values(_meta)) {
+      for (const k of Object.keys(teil)) delete teil[k];
+    }
+    clearTimeout(_metaTimer);
+    try { sessionStorage.removeItem(META_KEY); } catch {}
+  }
+
+  const _siteIds = _meta.siteIds;   // "host:/sites/x" → id
+  const _listIds = _meta.listIds;   // "siteId|Listenname" → id
 
   async function call(path, opts = {}) {
     const token = await AUTH.getToken();
@@ -50,6 +92,7 @@ const GRAPH = (() => {
     if (_siteIds[sitePath]) return _siteIds[sitePath];
     const s = await call("/sites/" + sitePath);
     _siteIds[sitePath] = s.id;
+    metaSpeichern();
     return s.id;
   }
 
@@ -61,6 +104,7 @@ const GRAPH = (() => {
     try {
       const l = await call(`/sites/${sid}/lists/${encodeURIComponent(name)}`);
       _listIds[key] = l.id;
+      metaSpeichern();
       return l.id;
     } catch (e) {
       if (e.status === 404) return null;
@@ -76,12 +120,13 @@ const GRAPH = (() => {
      „erwarteter Name → tatsächlicher interner Name“ aufgebaut und beim
      Lesen und Schreiben automatisch angewandt.                          */
 
-  const _colMaps = {};    // "sitePath|Liste" → { erwartet: intern }
-  const _colExp   = {};   // "sitePath|Liste" → string[] erwarteter Namen
+  const _colMaps = _meta.colMaps;    // "sitePath|Liste" → { erwartet: intern }
+  const _colExp   = _meta.colExp;   // "sitePath|Liste" → string[] erwarteter Namen
 
+  /** Leert Spaltenzuordnung UND Site-/Listen-IDs: nach einer Aenderung in
+   *  SharePoint sollen alle Metadaten neu ermittelt werden. */
   function clearColumnCache() {
-    for (const k of Object.keys(_colMaps)) delete _colMaps[k];
-    for (const k of Object.keys(_colExp)) delete _colExp[k];
+    metaLeeren();
   }
 
   async function columns(sitePath, name) {
@@ -115,6 +160,7 @@ const GRAPH = (() => {
     }
     _colMaps[key] = map;
     _colExp[key] = expected.slice();
+    metaSpeichern();
     return map;
   }
 

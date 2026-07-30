@@ -59,9 +59,19 @@ async function fakeFetch(url, opts = {}) {
 
 /* ── graph.js laden ───────────────────────────────────────────────── */
 
+/* Der vm-Kontext ist leer – die Browser-Umgebung nachbilden, die graph.js
+   voraussetzt: Timer für das gesammelte Schreiben und sessionStorage für den
+   Metadaten-Cache. */
+const speicher = new Map();
 const sandbox = {
   fetch: fakeFetch,
   console,
+  setTimeout, clearTimeout,
+  sessionStorage: {
+    getItem: k => (speicher.has(k) ? speicher.get(k) : null),
+    setItem: (k, v) => speicher.set(k, String(v)),
+    removeItem: k => speicher.delete(k)
+  },
   AUTH: { getToken: async () => "token" }
 };
 vm.createContext(sandbox);
@@ -108,6 +118,43 @@ COLUMNS = COLUMNS.map(c => c.name === "Typ2" ? { name: "Typ", displayName: "Typ"
 GRAPH.clearColumnCache();
 const map2 = await GRAPH.fieldMap(SITE, LIST, EXPECTED);
 check("Nach clearColumnCache greift die korrigierte Spalte", map2.Typ === "Typ", `map.Typ = ${map2.Typ}`);
+
+/* ── Metadaten-Cache ──────────────────────────────────────────────── */
+
+// Der Cache soll Site-ID, Listen-ID und Spaltenzuordnung über einen
+// Seitenaufruf hinaus halten – sonst kostet jedes Neuladen rund sieben
+// zusätzliche Graph-Aufrufe.
+await new Promise(r => setTimeout(r, 350));          // gesammeltes Schreiben abwarten
+const roh = speicher.get("rudj_meta");
+check("Metadaten liegen im sessionStorage", !!roh);
+const gecacht = JSON.parse(roh || "{}");
+check("Site-ID ist gecacht", !!gecacht.data?.siteIds?.[SITE], JSON.stringify(gecacht.data?.siteIds));
+check("Listen-ID ist gecacht", Object.keys(gecacht.data?.listIds || {}).length > 0);
+check("Spaltenzuordnung ist gecacht", !!gecacht.data?.colMaps?.[SITE + "|" + LIST]);
+
+// Neue Instanz aus demselben Speicher: darf keine Metadaten-Aufrufe mehr machen
+requests.length = 0;
+const sandbox2 = { ...sandbox };
+vm.createContext(sandbox2);
+vm.runInContext(SRC + "\n;globalThis.__G2 = GRAPH;", sandbox2);
+await sandbox2.__G2.listItems(SITE, LIST, EXPECTED);
+const metaAufrufe = requests.filter(r =>
+  r.path === "/sites/" + SITE || /\/lists\/[^/]+$/.test(r.path) || r.path.includes("/columns"));
+check("Nach Neuladen keine Metadaten-Aufrufe mehr", metaAufrufe.length === 0,
+  metaAufrufe.map(r => r.path).join(" | "));
+check("Die Einträge werden trotzdem geladen",
+  requests.some(r => r.path.includes("/items?")), requests.map(r => r.path).join(" | "));
+
+// clearColumnCache muss ALLES leeren – die Referenzen zeigen auf feste Objekte,
+// ein Neuzuweisen von _meta hätte hier nicht gewirkt.
+sandbox2.__G2.clearColumnCache();
+check("clearColumnCache entfernt den gespeicherten Cache", !speicher.get("rudj_meta"));
+requests.length = 0;
+await sandbox2.__G2.listItems(SITE, LIST, EXPECTED);
+const wieder = requests.filter(r =>
+  r.path === "/sites/" + SITE || /\/lists\/[^/]+$/.test(r.path) || r.path.includes("/columns"));
+check("Nach clearColumnCache werden Metadaten neu geholt", wieder.length >= 3,
+  wieder.map(r => r.path).join(" | "));
 
 /* ── Ausgabe ──────────────────────────────────────────────────────── */
 

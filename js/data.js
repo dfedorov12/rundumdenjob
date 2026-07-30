@@ -78,11 +78,54 @@ const DATA = (() => {
     passend: 0            // davon mit passender App
   };
 
+  /* ── Rollen-Cache ────────────────────────────────────────────────────
+     Das Lesen der Rechteliste kostet vier Graph-Aufrufe und lief bisher bei
+     jedem Seitenaufruf. Drei Minuten Zwischenspeicher machen den Start
+     schneller, ohne dass eine Rechteänderung lange unbemerkt bleibt – und
+     „Meine Rolle neu einlesen“ bzw. reloadRole() umgehen den Cache ohnehin. */
+
+  const ROLE_KEY = "rudj_role";
+  const ROLE_TTL = 3 * 60 * 1000;
+
+  function roleAusCache(email) {
+    try {
+      const c = JSON.parse(sessionStorage.getItem(ROLE_KEY) || "null");
+      if (!c || c.email !== email || Date.now() - c.ts > ROLE_TTL) return null;
+      Object.assign(roleInfo, c.info, { auscache: true });
+      return c.role;
+    } catch { return null; }
+  }
+
+  function roleInCache(email, role) {
+    try {
+      sessionStorage.setItem(ROLE_KEY, JSON.stringify({
+        email, role, ts: Date.now(),
+        info: { ...roleInfo, auscache: false }
+      }));
+    } catch {}
+  }
+
+  const clearRoleCache = () => { try { sessionStorage.removeItem(ROLE_KEY); } catch {} };
+
   /** Rolle aus der zentralen Liste AppPermissions (wie im Orgchart).
-   *  Ohne Treffer gilt die Standardrolle – alle Tenant-Nutzer dürfen lesen. */
-  async function loadRole() {
+   *  Ohne Treffer gilt die Standardrolle – alle Tenant-Nutzer dürfen lesen.
+   *  @param {boolean} [frisch] Cache umgehen und neu lesen. */
+  async function loadRole(frisch = false) {
+    if (!frisch) {
+      const c = roleAusCache(ctx.email);
+      if (c) return c;
+    }
+    const rolle = await ermittleRolle();
+    // Fehlerfälle nicht zwischenspeichern – sonst wartet man nach dem
+    // Beheben eines Rechteproblems minutenlang auf die Wirkung.
+    if (!roleInfo.fehler) roleInCache(ctx.email, rolle);
+    return rolle;
+  }
+
+  async function ermittleRolle() {
     roleInfo.quelle = "standard";
     roleInfo.fehler = null;
+    roleInfo.auscache = false;
     roleInfo.zeilen = roleInfo.treffer = roleInfo.passend = 0;
 
     if (isHauptAdmin(ctx.email)) { roleInfo.quelle = "hauptadmin"; return "admin"; }
@@ -135,7 +178,7 @@ const DATA = (() => {
    *  @returns {Promise<{alt:string, neu:string, geaendert:boolean}>} */
   async function reloadRole() {
     const alt = ctx.role;
-    ctx.role = await loadRole();
+    ctx.role = await loadRole(true);   // Cache umgehen
     return { alt, neu: ctx.role, geaendert: alt !== ctx.role };
   }
 
@@ -187,7 +230,8 @@ const DATA = (() => {
 
   function clearCache() {
     try { sessionStorage.removeItem("rudj_cfg"); } catch {}
-    GRAPH.clearColumnCache();   // Spaltenzuordnung neu ermitteln
+    clearRoleCache();
+    GRAPH.clearColumnCache();   // Spalten- und ID-Cache neu ermitteln
   }
 
   /** Automatische Zuordnung: E-Mail-Domäne → Gesellschaft. */
