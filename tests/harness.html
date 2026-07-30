@@ -290,7 +290,10 @@ RUDJ_CONFIG.hauptAdmins = TESTDB.role === "admin" ? [TESTDB.mail] : [];
 /* Cache-Buster: der Test soll immer die Dateien von der Platte laden,
    nicht eine aeltere Version aus dem Browser-Cache. document.write haelt
    die Ausfuehrungsreihenfolge ein. */
-["../js/data.js", "../js/seed.js", "../js/impexp.js", "../js/settings.js", "../js/app.js"].forEach(src =>
+["../js/data.js", "../js/seed.js", "../js/settings.js",
+ "../js/set-gesellschaften.js", "../js/set-reiter.js", "../js/set-kacheln.js",
+ "../js/set-rechte.js", "../js/set-diagnose.js",
+ "../js/impexp.js", "../js/app.js"].forEach(src =>
   document.write('<scr' + 'ipt src="' + src + '?cb=' + Date.now() + '"></scr' + 'ipt>'));
 </script>
 <script>

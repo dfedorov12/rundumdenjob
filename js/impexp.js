@@ -831,3 +831,6 @@ const IMPEXP = (() => {
   return { render, FIELDS, SETS, toCsv, fromCsv, spaltenZuordnen, normWert, istWert,
            jsonAlsTabelle, fehlendeZusatzrechte };
 })();
+
+/* Registriert sich als Unterreiter der Einstellungen. */
+SETTINGS_VIEWS.impexp = IMPEXP.render;
